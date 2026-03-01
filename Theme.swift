@@ -13,7 +13,9 @@ struct Theme {
         // Semantic Colors
         static let income = Color(hex: "34C759")      // System Green
         static let expense = Color(hex: "FF3B30")      // System Red
-        static let transfer = Color(hex: "FF9500")      // Orange (more vibrant than gray)
+        static let transfer = Color(hex: "0191FF")     // App blue for transfers
+        static let recurring = Color(hex: "FF9500")    // Orange for recurring
+        static let goals = Color(hex: "FFCC00")        // Yellow for goals
         
         // Background Colors
         static let background = Color(uiColor: .systemGroupedBackground)
@@ -33,16 +35,38 @@ struct Theme {
         
         // Category Colors (for user selection)
         static let categoryColors: [Color] = [
-            Color(hex: "0191FF"), // Blue
-            Color(hex: "34C759"), // Green
-            Color(hex: "FF9500"), // Orange
+            // Red spectrum
             Color(hex: "FF3B30"), // Red
-            Color(hex: "AF52DE"), // Purple
-            Color(hex: "FF2D55"), // Pink
+            Color(hex: "FF6259"), // Coral
+            Color(hex: "FF2D55"), // Rose
+            // Orange spectrum
+            Color(hex: "FF9500"), // Orange
+            Color(hex: "FF6F20"), // Tangerine
+            Color(hex: "C8651B"), // Burnt Orange
+            // Yellow spectrum
             Color(hex: "FFCC00"), // Yellow
+            Color(hex: "FFD60A"), // Amber
+            // Green spectrum
+            Color(hex: "A8D84E"), // Lime
+            Color(hex: "34C759"), // Green
+            Color(hex: "30B050"), // Forest
             Color(hex: "00C7BE"), // Teal
+            // Blue spectrum
+            Color(hex: "5AC8FA"), // Sky
+            Color(hex: "0191FF"), // Blue
+            Color(hex: "007AFF"), // Royal Blue
+            Color(hex: "2C5EBF"), // Navy
+            // Purple spectrum
             Color(hex: "5856D6"), // Indigo
-            Color(hex: "8E8E93"), // Gray
+            Color(hex: "AF52DE"), // Purple
+            Color(hex: "BF5AF2"), // Violet
+            Color(hex: "9B59B6"), // Plum
+            // Pink spectrum
+            Color(hex: "FF69B4"), // Hot Pink
+            Color(hex: "E8549A"), // Magenta
+            // Neutrals
+            Color(hex: "8E8E93"), // Grey
+            Color(hex: "3A3A3C"), // Charcoal
         ]
     }
     
@@ -174,8 +198,8 @@ struct Theme {
         static let record = "plus.circle.fill"
         static let wallet = "wallet.bifold.fill"
         static let walletOutline = "wallet.bifold"
-        static let more = "line.3.horizontal"
-        static let moreOutline = "line.3.horizontal"
+        static let more = "ellipsis"
+        static let moreOutline = "ellipsis"
         
         // Transaction Types
         static let income = "arrow.down.circle.fill"

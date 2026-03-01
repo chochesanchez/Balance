@@ -44,21 +44,35 @@ struct Account: Identifiable, Codable, Hashable {
     }
 }
 
-enum AccountType: String, Codable, CaseIterable {
+enum AccountType: String, CaseIterable, Codable {
     case cash = "Cash"
-    case checking = "Checking"
+    case checking = "Bank Account"
+    case debitCard = "Debit Card"
     case savings = "Savings"
     case creditCard = "Credit Card"
     case investment = "Investment"
+    case digitalWallet = "Digital Wallet"
     case other = "Other"
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode(String.self)
+        if raw == "Checking" { self = .checking; return }
+        guard let value = AccountType(rawValue: raw) else {
+            self = .other; return
+        }
+        self = value
+    }
     
     var defaultIcon: String {
         switch self {
         case .cash: return "dollarsign.circle.fill"
         case .checking: return "building.columns.fill"
+        case .debitCard: return "creditcard.fill"
         case .savings: return "banknote.fill"
         case .creditCard: return "creditcard.fill"
         case .investment: return "chart.line.uptrend.xyaxis"
+        case .digitalWallet: return "iphone.gen3"
         case .other: return "wallet.pass.fill"
         }
     }
@@ -67,9 +81,11 @@ enum AccountType: String, Codable, CaseIterable {
         switch self {
         case .cash: return "#34C759"
         case .checking: return "#007AFF"
+        case .debitCard: return "#0191FF"
         case .savings: return "#5856D6"
         case .creditCard: return "#FF9500"
         case .investment: return "#AF52DE"
+        case .digitalWallet: return "#00C7BE"
         case .other: return "#8E8E93"
         }
     }
@@ -118,6 +134,7 @@ struct Category: Identifiable, Codable, Hashable {
 enum CategoryType: String, Codable, CaseIterable {
     case expense = "Expense"
     case income = "Income"
+    case both = "Both"
 }
 
 // MARK: - Transaction Model
@@ -179,7 +196,7 @@ enum TransactionType: String, Codable, CaseIterable {
         switch self {
         case .income: return Theme.Colors.income
         case .expense: return Theme.Colors.expense
-        case .transfer: return Color.orange
+        case .transfer: return Theme.Colors.transfer
         }
     }
     
@@ -298,6 +315,12 @@ enum RecurringFrequency: String, Codable, CaseIterable {
     }
 }
 
+// MARK: - Goal Type
+enum GoalType: String, Codable, CaseIterable {
+    case goal = "Goal"
+    case envelope = "Savings Pot"
+}
+
 // MARK: - Goal Model
 struct Goal: Identifiable, Codable {
     let id: UUID
@@ -310,19 +333,21 @@ struct Goal: Identifiable, Codable {
     var color: String
     var imageData: Data?
     var isCompleted: Bool
+    var goalType: GoalType
     var createdAt: Date
     
     init(
         id: UUID = UUID(),
         title: String,
         description: String = "",
-        targetAmount: Double,
+        targetAmount: Double = 0,
         currentAmount: Double = 0,
         deadline: Date? = nil,
         icon: String = "star.fill",
         color: String = "#007AFF",
         imageData: Data? = nil,
         isCompleted: Bool = false,
+        goalType: GoalType = .goal,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -335,7 +360,24 @@ struct Goal: Identifiable, Codable {
         self.color = color
         self.imageData = imageData
         self.isCompleted = isCompleted
+        self.goalType = goalType
         self.createdAt = createdAt
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        description = try container.decode(String.self, forKey: .description)
+        targetAmount = try container.decode(Double.self, forKey: .targetAmount)
+        currentAmount = try container.decode(Double.self, forKey: .currentAmount)
+        deadline = try container.decodeIfPresent(Date.self, forKey: .deadline)
+        icon = try container.decode(String.self, forKey: .icon)
+        color = try container.decode(String.self, forKey: .color)
+        imageData = try container.decodeIfPresent(Data.self, forKey: .imageData)
+        isCompleted = try container.decode(Bool.self, forKey: .isCompleted)
+        goalType = try container.decodeIfPresent(GoalType.self, forKey: .goalType) ?? .goal
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
     }
     
     var progress: Double {
@@ -350,6 +392,8 @@ struct Goal: Identifiable, Codable {
     var colorValue: Color {
         Color(hex: color)
     }
+    
+    var isEnvelope: Bool { goalType == .envelope }
 }
 
 // MARK: - User Profile
@@ -385,6 +429,19 @@ struct UserProfile: Identifiable, Codable {
         self.primaryGoal = primaryGoal
         self.createdAt = createdAt
     }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        username = try container.decodeIfPresent(String.self, forKey: .username) ?? ""
+        email = try container.decode(String.self, forKey: .email)
+        phone = try container.decodeIfPresent(String.self, forKey: .phone) ?? ""
+        profileImageData = try container.decodeIfPresent(Data.self, forKey: .profileImageData)
+        monthlyIncomeRange = try container.decodeIfPresent(IncomeRange.self, forKey: .monthlyIncomeRange)
+        primaryGoal = try container.decodeIfPresent(FinancialGoal.self, forKey: .primaryGoal)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+    }
 }
 
 enum IncomeRange: String, Codable, CaseIterable {
@@ -418,17 +475,29 @@ struct AppState: Codable {
     var selectedCurrency: String
     var notificationsEnabled: Bool
     var preferredTimeRange: TimeRange
+    var weeklySpendingLimit: Double
     
     init(
         hasCompletedOnboarding: Bool = false,
         selectedCurrency: String = "USD",
         notificationsEnabled: Bool = true,
-        preferredTimeRange: TimeRange = .monthly
+        preferredTimeRange: TimeRange = .monthly,
+        weeklySpendingLimit: Double = 0
     ) {
         self.hasCompletedOnboarding = hasCompletedOnboarding
         self.selectedCurrency = selectedCurrency
         self.notificationsEnabled = notificationsEnabled
         self.preferredTimeRange = preferredTimeRange
+        self.weeklySpendingLimit = weeklySpendingLimit
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        hasCompletedOnboarding = try container.decode(Bool.self, forKey: .hasCompletedOnboarding)
+        selectedCurrency = try container.decode(String.self, forKey: .selectedCurrency)
+        notificationsEnabled = try container.decode(Bool.self, forKey: .notificationsEnabled)
+        preferredTimeRange = try container.decode(TimeRange.self, forKey: .preferredTimeRange)
+        weeklySpendingLimit = try container.decodeIfPresent(Double.self, forKey: .weeklySpendingLimit) ?? 0
     }
 }
 

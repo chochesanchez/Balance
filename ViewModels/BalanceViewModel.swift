@@ -87,11 +87,11 @@ class BalanceViewModel: ObservableObject {
     }
     
     var expenseCategories: [Category] {
-        categories.filter { $0.type == .expense }.sorted { $0.sortOrder < $1.sortOrder }
+        categories.filter { $0.type == .expense || $0.type == .both }.sorted { $0.sortOrder < $1.sortOrder }
     }
     
     var incomeCategories: [Category] {
-        categories.filter { $0.type == .income }.sorted { $0.sortOrder < $1.sortOrder }
+        categories.filter { $0.type == .income || $0.type == .both }.sorted { $0.sortOrder < $1.sortOrder }
     }
     
     var recentTransactions: [Transaction] {
@@ -391,12 +391,62 @@ class BalanceViewModel: ObservableObject {
         if let index = goals.firstIndex(where: { $0.id == goal.id }) {
             var updated = goal
             updated.currentAmount += amount
-            if updated.currentAmount >= updated.targetAmount {
+            if updated.currentAmount < 0 { updated.currentAmount = 0 }
+            if updated.goalType == .goal && updated.targetAmount > 0 && updated.currentAmount >= updated.targetAmount {
                 updated.isCompleted = true
             }
             goals[index] = updated
             saveGoals()
         }
+    }
+    
+    // MARK: - Envelope / Savings Pot Helpers
+    
+    var envelopes: [Goal] {
+        goals.filter { $0.goalType == .envelope && !$0.isCompleted }
+    }
+    
+    var activeGoals: [Goal] {
+        goals.filter { $0.goalType == .goal && !$0.isCompleted }
+    }
+    
+    var totalEnvelopeBalance: Double {
+        envelopes.reduce(0) { $0 + $1.currentAmount }
+    }
+    
+    // MARK: - Weekly Balance History
+    
+    func weeklyBalanceHistory(weeks: Int = 8) -> [(weekLabel: String, endDate: Date, balance: Double)] {
+        let cal = Calendar.current
+        var result: [(weekLabel: String, endDate: Date, balance: Double)] = []
+        
+        let totalInitialBalance = accounts.reduce(0.0) { $0 + $1.initialBalance }
+        
+        for i in (0..<weeks).reversed() {
+            guard let weekStart = cal.date(byAdding: .weekOfYear, value: -i, to: Date()),
+                  let weekInterval = cal.dateInterval(of: .weekOfYear, for: weekStart) else { continue }
+            
+            let weekEnd = weekInterval.end
+            
+            let transactionsUpToWeekEnd = transactions.filter { $0.date < weekEnd }
+            let netTransactions = transactionsUpToWeekEnd.reduce(0.0) { total, tx in
+                switch tx.type {
+                case .income: return total + tx.amount
+                case .expense: return total - tx.amount
+                case .transfer: return total
+                }
+            }
+            
+            let balance = totalInitialBalance + netTransactions
+            
+            let df = DateFormatter()
+            df.dateFormat = "MMM d"
+            let label = i == 0 ? "Now" : df.string(from: weekInterval.start)
+            
+            result.append((weekLabel: label, endDate: weekEnd, balance: balance))
+        }
+        
+        return result
     }
     
     // MARK: - User Profile Functions
@@ -420,6 +470,10 @@ class BalanceViewModel: ObservableObject {
     
     func resetOnboarding() {
         appState.hasCompletedOnboarding = false
+        saveAppState()
+    }
+    
+    func saveData() {
         saveAppState()
     }
     

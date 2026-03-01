@@ -2,87 +2,80 @@ import SwiftUI
 import PhotosUI
 
 // MARK: - More View
-/// Settings, profile, and additional features
 struct MoreView: View {
     @ObservedObject var viewModel: BalanceViewModel
     
     var body: some View {
         List {
-            // Profile Section
+            // Profile
             Section {
                 NavigationLink(destination: NewProfileView(viewModel: viewModel)) {
-                    HStack(spacing: Theme.Spacing.md) {
-                        // Profile Image
+                    HStack(spacing: 14) {
                         ProfileAvatarView(imageData: viewModel.userProfile.profileImageData, size: 56)
                         
                         VStack(alignment: .leading, spacing: 2) {
                             Text(viewModel.userProfile.name.isEmpty ? "Set up your profile" : viewModel.userProfile.name)
-                                .font(Theme.Typography.headline)
-                                .foregroundColor(Theme.Colors.primaryText)
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundColor(Color(uiColor: .label))
                             
-                            Text(viewModel.userProfile.username.isEmpty ? (viewModel.userProfile.email.isEmpty ? "Tap to add details" : viewModel.userProfile.email) : "@\(viewModel.userProfile.username)")
-                                .font(Theme.Typography.subheadline)
-                                .foregroundColor(Theme.Colors.secondaryText)
+                            Text(profileSubtitle)
+                                .font(.system(size: 14))
+                                .foregroundColor(Color(uiColor: .secondaryLabel))
                         }
                     }
-                    .padding(.vertical, Theme.Spacing.xs)
+                    .padding(.vertical, 6)
                 }
             }
             
-            // Features Section
+            // Features
             Section("Features") {
                 NavigationLink(destination: RecurringView(viewModel: viewModel)) {
                     RecurringBadgeRow(viewModel: viewModel)
                 }
                 
                 NavigationLink(destination: AnalyticsView(viewModel: viewModel)) {
-                    MoreRowView(icon: "chart.bar.fill", title: "Analytics & Insights", color: .blue)
+                    MoreRowView(icon: "chart.bar.fill", title: "Analytics", color: Theme.Colors.primary)
                 }
                 
                 NavigationLink(destination: GoalsListView(viewModel: viewModel)) {
-                    MoreRowView(icon: "target", title: "Goals", color: .orange)
+                    MoreRowView(icon: "target", title: "Goals", color: Theme.Colors.goals)
                 }
                 
                 NavigationLink(destination: FinancialHealthView(viewModel: viewModel)) {
-                    MoreRowView(icon: "heart.fill", title: "Financial Health", color: .red)
+                    MoreRowView(icon: "heart.fill", title: "Financial Health", color: Theme.Colors.expense)
                 }
                 
                 NavigationLink(destination: TipsView()) {
-                    MoreRowView(icon: "lightbulb.fill", title: "Tips & Guides", color: .yellow)
+                    MoreRowView(icon: "lightbulb.max.fill", title: "Tips & Guides", color: Color(hex: "FFCC00"))
                 }
             }
             
-            // Settings Section
+            // Settings
             Section("Settings") {
                 NavigationLink(destination: SettingsView(viewModel: viewModel)) {
-                    MoreRowView(icon: "gearshape.fill", title: "Settings", color: .gray)
+                    MoreRowView(icon: "gearshape.fill", title: "Settings", color: Color(uiColor: .systemGray))
                 }
             }
             
-            // About Section
+            // About
             Section("About") {
                 NavigationLink(destination: HelpView()) {
-                    MoreRowView(icon: "questionmark.circle.fill", title: "Help & Support", color: .green)
+                    MoreRowView(icon: "questionmark.circle.fill", title: "Help & Support", color: Theme.Colors.income)
                 }
                 
                 NavigationLink(destination: AboutBalanceView()) {
-                    MoreRowView(icon: "info.circle.fill", title: "About Balance", color: .blue)
+                    MoreRowView(icon: "info.circle.fill", title: "About Balance", color: Theme.Colors.primary)
                 }
             }
             
-            // Debug Section (for development)
             #if DEBUG
             Section("Developer") {
-                Button(action: {
-                    viewModel.resetOnboarding()
-                }) {
-                    MoreRowView(icon: "arrow.counterclockwise", title: "Reset Onboarding", color: .purple)
+                Button(action: { viewModel.resetOnboarding() }) {
+                    MoreRowView(icon: "arrow.counterclockwise", title: "Reset Onboarding", color: Color(hex: "AF52DE"))
                 }
                 
-                Button(action: {
-                    viewModel.resetAllData()
-                }) {
-                    MoreRowView(icon: "trash.fill", title: "Reset All Data", color: .red)
+                Button(action: { viewModel.resetAllData() }) {
+                    MoreRowView(icon: "trash.fill", title: "Reset All Data", color: Theme.Colors.expense)
                 }
             }
             #endif
@@ -90,6 +83,15 @@ struct MoreView: View {
         .listStyle(.insetGrouped)
         .navigationTitle("More")
         .navigationBarTitleDisplayMode(.large)
+    }
+    
+    private var profileSubtitle: String {
+        if !viewModel.userProfile.username.isEmpty {
+            return "@\(viewModel.userProfile.username)"
+        } else if !viewModel.userProfile.email.isEmpty {
+            return viewModel.userProfile.email
+        }
+        return "Tap to add details"
     }
 }
 
@@ -102,10 +104,10 @@ struct RecurringBadgeRow: View {
     }
     
     var body: some View {
-        HStack(spacing: Theme.Spacing.sm) {
+        HStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.purple)
+                    .fill(Theme.Colors.recurring)
                     .frame(width: 32, height: 32)
                 
                 Image(systemName: "repeat.circle.fill")
@@ -114,17 +116,16 @@ struct RecurringBadgeRow: View {
             }
             
             Text("Recurring")
-                .font(Theme.Typography.body)
-                .foregroundColor(Theme.Colors.primaryText)
+                .font(.system(size: 17))
+                .foregroundColor(Color(uiColor: .label))
             
             Spacer()
             
             if badgeCount > 0 {
                 Text("\(badgeCount)")
-                    .font(Theme.Typography.caption)
-                    .fontWeight(.semibold)
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.white)
-                    .padding(.horizontal, Theme.Spacing.xs)
+                    .padding(.horizontal, 8)
                     .padding(.vertical, 2)
                     .background(Theme.Colors.expense)
                     .cornerRadius(10)
@@ -140,7 +141,7 @@ struct MoreRowView: View {
     let color: Color
     
     var body: some View {
-        HStack(spacing: Theme.Spacing.sm) {
+        HStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(color)
@@ -152,13 +153,13 @@ struct MoreRowView: View {
             }
             
             Text(title)
-                .font(Theme.Typography.body)
-                .foregroundColor(Theme.Colors.primaryText)
+                .font(.system(size: 17))
+                .foregroundColor(Color(uiColor: .label))
         }
     }
 }
 
-// MARK: - New Profile View (Connected with Home Profile)
+// MARK: - Profile View
 struct NewProfileView: View {
     @ObservedObject var viewModel: BalanceViewModel
     @State private var isEditing = false
@@ -173,12 +174,11 @@ struct NewProfileView: View {
     
     var body: some View {
         List {
-            // Profile Header
+            // Header
             Section {
                 HStack {
                     Spacer()
-                    VStack(spacing: 14) {
-                        // Photo -- always tappable to change
+                    VStack(spacing: 12) {
                         Button(action: { showingImagePicker = true }) {
                             ZStack(alignment: .bottomTrailing) {
                                 ProfileAvatarView(imageData: viewModel.userProfile.profileImageData, size: 100)
@@ -213,9 +213,8 @@ struct NewProfileView: View {
                             }
                         }
                         
-                        // Quick Stats
                         HStack(spacing: 28) {
-                            ProfileStat(value: "\(viewModel.transactions.count)", label: "Transactions")
+                            ProfileStat(value: "\(viewModel.transactions.count)", label: "Records")
                             ProfileStat(value: "\(viewModel.goals.count)", label: "Goals")
                             ProfileStat(value: "\(viewModel.accounts.count)", label: "Accounts")
                         }
@@ -240,7 +239,7 @@ struct NewProfileView: View {
                     
                     HStack {
                         Image(systemName: "envelope.fill")
-                            .foregroundColor(Color(hex: "FF9500"))
+                            .foregroundColor(Theme.Colors.recurring)
                             .frame(width: 24)
                         TextField("Email", text: $editingProfile.email)
                             .keyboardType(.emailAddress)
@@ -257,7 +256,7 @@ struct NewProfileView: View {
                 } else {
                     ProfileRow(icon: "person.fill", iconColor: Theme.Colors.primary, title: "Name", value: viewModel.userProfile.name.isEmpty ? "Not set" : viewModel.userProfile.name)
                     ProfileRow(icon: "at", iconColor: Color(hex: "5856D6"), title: "Username", value: viewModel.userProfile.username.isEmpty ? "Not set" : "@\(viewModel.userProfile.username)")
-                    ProfileRow(icon: "envelope.fill", iconColor: Color(hex: "FF9500"), title: "Email", value: viewModel.userProfile.email.isEmpty ? "Not set" : viewModel.userProfile.email)
+                    ProfileRow(icon: "envelope.fill", iconColor: Theme.Colors.recurring, title: "Email", value: viewModel.userProfile.email.isEmpty ? "Not set" : viewModel.userProfile.email)
                     ProfileRow(icon: "phone.fill", iconColor: Theme.Colors.income, title: "Phone", value: viewModel.userProfile.phone.isEmpty ? "Not set" : viewModel.userProfile.phone)
                 }
             }
@@ -268,11 +267,11 @@ struct NewProfileView: View {
                     HStack(spacing: 10) {
                         ZStack {
                             Circle()
-                                .fill(Color.orange.opacity(0.15))
+                                .fill(Theme.Colors.goals.opacity(0.15))
                                 .frame(width: 32, height: 32)
                             Image(systemName: goal.icon)
                                 .font(.system(size: 14))
-                                .foregroundColor(.orange)
+                                .foregroundColor(Theme.Colors.goals)
                         }
                         Text(goal.rawValue)
                             .font(.system(size: 15))
@@ -280,7 +279,7 @@ struct NewProfileView: View {
                 }
             }
             
-            // App Stats
+            // Your Journey
             Section("Your Journey") {
                 HStack {
                     Image(systemName: "calendar")
@@ -306,12 +305,12 @@ struct NewProfileView: View {
                 
                 HStack {
                     Image(systemName: "percent")
-                        .foregroundColor(Theme.Colors.primary)
+                        .foregroundColor(viewModel.savingsRate >= 20 ? Theme.Colors.income : Theme.Colors.recurring)
                         .frame(width: 24)
                     Text("Savings rate")
                     Spacer()
                     Text(String(format: "%.0f%%", max(0, viewModel.savingsRate)))
-                        .font(.system(size: 14))
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundColor(viewModel.savingsRate >= 20 ? Theme.Colors.income : Color(uiColor: .secondaryLabel))
                 }
             }
@@ -343,7 +342,7 @@ struct NewProfileView: View {
                     } else {
                         editingProfile = viewModel.userProfile
                     }
-                    withAnimation(.easeInOut(duration: 0.2)) { isEditing.toggle() }
+                    withAnimation(.snappy) { isEditing.toggle() }
                 }
                 .fontWeight(isEditing ? .semibold : .regular)
             }
@@ -362,7 +361,6 @@ struct NewProfileView: View {
     private var memberSince: String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
-        // Use first transaction date or today
         if let firstTransaction = viewModel.transactions.sorted(by: { $0.date < $1.date }).first {
             return formatter.string(from: firstTransaction.date)
         }
@@ -379,13 +377,13 @@ struct ProfileStat: View {
     let label: String
     
     var body: some View {
-        VStack(spacing: Theme.Spacing.xxs) {
+        VStack(spacing: 2) {
             Text(value)
-                .font(Theme.Typography.title3)
-                .foregroundColor(Theme.Colors.primaryText)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundColor(Color(uiColor: .label))
             Text(label)
-                .font(Theme.Typography.caption)
-                .foregroundColor(Theme.Colors.secondaryText)
+                .font(.system(size: 11))
+                .foregroundColor(Color(uiColor: .secondaryLabel))
         }
     }
 }
@@ -397,14 +395,16 @@ struct ProfileRow: View {
     let value: String
     
     var body: some View {
-        HStack(spacing: Theme.Spacing.sm) {
+        HStack(spacing: 12) {
             Image(systemName: icon)
                 .foregroundColor(iconColor)
                 .frame(width: 24)
             Text(title)
+                .font(.system(size: 15))
             Spacer()
             Text(value)
-                .foregroundColor(Theme.Colors.secondaryText)
+                .font(.system(size: 15))
+                .foregroundColor(Color(uiColor: .secondaryLabel))
         }
     }
 }
@@ -416,10 +416,10 @@ struct ProfileInfoRow: View {
     var body: some View {
         HStack {
             Text(title)
-                .foregroundColor(Theme.Colors.secondaryText)
+                .foregroundColor(Color(uiColor: .secondaryLabel))
             Spacer()
             Text(value)
-                .foregroundColor(Theme.Colors.primaryText)
+                .foregroundColor(Color(uiColor: .label))
         }
     }
 }
@@ -458,25 +458,24 @@ struct ProfileImagePicker: UIViewControllerRepresentable {
     }
 }
 
-// MARK: - Analytics View (Improved)
+// MARK: - Analytics View
 struct AnalyticsView: View {
     @ObservedObject var viewModel: BalanceViewModel
     @State private var selectedTimeRange: TimeRange = .monthly
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: Theme.Spacing.xl) {
-                // Time Range Selector
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 16) {
                 TimeScopeSelector(selected: $selectedTimeRange, showAllOptions: true)
-                    .padding(.horizontal, Theme.Spacing.md)
+                    .padding(.horizontal, 16)
                 
-                // Monthly Overview
-                VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                // Overview
+                VStack(alignment: .leading, spacing: 14) {
                     Text("\(selectedTimeRange.shortTitle) Overview")
-                        .font(Theme.Typography.headline)
-                        .foregroundColor(Theme.Colors.primaryText)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Color(uiColor: .label))
                     
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                         AnalyticsStatCard(
                             icon: "arrow.down.circle.fill",
                             title: "Income",
@@ -502,19 +501,19 @@ struct AnalyticsView: View {
                             icon: "percent",
                             title: "Savings Rate",
                             value: String(format: "%.0f%%", max(0, viewModel.savingsRate)),
-                            color: viewModel.savingsRate >= 20 ? Theme.Colors.income : .orange
+                            color: viewModel.savingsRate >= 20 ? Theme.Colors.income : Theme.Colors.recurring
                         )
                     }
                 }
-                .padding(Theme.Spacing.md)
-                .background(Theme.Colors.cardBackground)
-                .cornerRadius(Theme.CornerRadius.large)
-                .padding(.horizontal, Theme.Spacing.md)
+                .padding(16)
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(16)
+                .padding(.horizontal, 16)
                 
-                // Daily Average
-                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                // Daily Averages
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Daily Averages")
-                        .font(Theme.Typography.headline)
+                        .font(.system(size: 15, weight: .semibold))
                     
                     HStack {
                         DailyAverageItem(
@@ -530,21 +529,21 @@ struct AnalyticsView: View {
                         )
                     }
                 }
-                .padding(Theme.Spacing.md)
-                .background(Theme.Colors.cardBackground)
-                .cornerRadius(Theme.CornerRadius.medium)
-                .padding(.horizontal, Theme.Spacing.md)
+                .padding(16)
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(14)
+                .padding(.horizontal, 16)
                 
                 // Spending by Category
                 if !viewModel.spendingByCategory().isEmpty {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                    VStack(alignment: .leading, spacing: 14) {
                         HStack {
                             Text("Spending by Category")
-                                .font(Theme.Typography.headline)
+                                .font(.system(size: 15, weight: .semibold))
                             Spacer()
                             Text("\(viewModel.spendingByCategory().count) categories")
-                                .font(Theme.Typography.caption)
-                                .foregroundColor(Theme.Colors.secondaryText)
+                                .font(.system(size: 12))
+                                .foregroundColor(Color(uiColor: .secondaryLabel))
                         }
                         
                         ForEach(viewModel.spendingByCategory().prefix(8), id: \.category.id) { item in
@@ -556,18 +555,18 @@ struct AnalyticsView: View {
                             )
                         }
                     }
-                    .padding(Theme.Spacing.md)
-                    .background(Theme.Colors.cardBackground)
-                    .cornerRadius(Theme.CornerRadius.medium)
-                    .padding(.horizontal, Theme.Spacing.md)
+                    .padding(16)
+                    .background(Color(uiColor: .systemBackground))
+                    .cornerRadius(14)
+                    .padding(.horizontal, 16)
                 }
                 
-                // Transaction Count
-                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                // Transaction Activity
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Transaction Activity")
-                        .font(Theme.Typography.headline)
+                        .font(.system(size: 15, weight: .semibold))
                     
-                    HStack(spacing: Theme.Spacing.lg) {
+                    HStack(spacing: 16) {
                         TransactionCountItem(
                             count: viewModel.currentRangeTransactions.filter { $0.type == .income }.count,
                             label: "Income",
@@ -586,20 +585,18 @@ struct AnalyticsView: View {
                             count: viewModel.currentRangeTransactions.filter { $0.type == .transfer }.count,
                             label: "Transfers",
                             icon: "arrow.left.arrow.right.circle.fill",
-                            color: .orange
+                            color: Theme.Colors.transfer
                         )
                     }
                 }
-                .padding(Theme.Spacing.md)
-                .background(Theme.Colors.cardBackground)
-                .cornerRadius(Theme.CornerRadius.medium)
-                .padding(.horizontal, Theme.Spacing.md)
-                
-                Spacer(minLength: Theme.Spacing.xxl)
+                .padding(16)
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(14)
+                .padding(.horizontal, 16)
             }
-            .padding(.top, Theme.Spacing.md)
+            .padding(.vertical, 16)
         }
-        .background(Theme.Colors.background)
+        .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("Analytics")
     }
 }
@@ -611,24 +608,24 @@ struct AnalyticsStatCard: View {
     let color: Color
     
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            HStack(spacing: Theme.Spacing.xs) {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(.system(size: 13))
                     .foregroundColor(color)
                 Text(title)
-                    .font(Theme.Typography.caption)
-                    .foregroundColor(Theme.Colors.secondaryText)
+                    .font(.system(size: 12))
+                    .foregroundColor(Color(uiColor: .secondaryLabel))
             }
             
             Text(value)
-                .font(Theme.Typography.headline)
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(color)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Theme.Spacing.md)
-        .background(color.opacity(0.1))
-        .cornerRadius(Theme.CornerRadius.small)
+        .padding(14)
+        .background(color.opacity(0.08))
+        .cornerRadius(12)
     }
 }
 
@@ -638,16 +635,16 @@ struct DailyAverageItem: View {
     let color: Color
     
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(Theme.Typography.caption)
-                .foregroundColor(Theme.Colors.secondaryText)
+                .font(.system(size: 12))
+                .foregroundColor(Color(uiColor: .secondaryLabel))
             Text(value)
-                .font(Theme.Typography.headline)
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(color)
             Text("per day")
-                .font(Theme.Typography.caption2)
-                .foregroundColor(Theme.Colors.tertiaryText)
+                .font(.system(size: 11))
+                .foregroundColor(Color(uiColor: .tertiaryLabel))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -660,10 +657,10 @@ struct CategorySpendingRow: View {
     let currency: String
     
     var body: some View {
-        HStack(spacing: Theme.Spacing.sm) {
+        HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(category.colorValue.opacity(0.15))
+                    .fill(category.colorValue.opacity(0.12))
                     .frame(width: 36, height: 36)
                 Image(systemName: category.icon)
                     .font(.system(size: 14))
@@ -671,17 +668,17 @@ struct CategorySpendingRow: View {
             }
             
             Text(category.name)
-                .font(Theme.Typography.body)
+                .font(.system(size: 15))
             
             Spacer()
             
             VStack(alignment: .trailing, spacing: 2) {
                 Text(formatCurrency(amount, currency: currency))
-                    .font(Theme.Typography.subheadline)
+                    .font(.system(size: 14, weight: .medium))
                 
                 Text(String(format: "%.0f%%", percentage))
-                    .font(Theme.Typography.caption)
-                    .foregroundColor(Theme.Colors.tertiaryText)
+                    .font(.system(size: 11))
+                    .foregroundColor(Color(uiColor: .tertiaryLabel))
             }
         }
     }
@@ -694,16 +691,16 @@ struct TransactionCountItem: View {
     let color: Color
     
     var body: some View {
-        VStack(spacing: Theme.Spacing.xxs) {
+        VStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.system(size: 20))
                 .foregroundColor(color)
             Text("\(count)")
-                .font(Theme.Typography.title3)
-                .foregroundColor(Theme.Colors.primaryText)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundColor(Color(uiColor: .label))
             Text(label)
-                .font(Theme.Typography.caption2)
-                .foregroundColor(Theme.Colors.secondaryText)
+                .font(.system(size: 11))
+                .foregroundColor(Color(uiColor: .secondaryLabel))
         }
         .frame(maxWidth: .infinity)
     }
@@ -715,129 +712,159 @@ struct StatCard: View {
     let color: Color
     
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(Theme.Typography.caption)
-                .foregroundColor(Theme.Colors.secondaryText)
-            
+                .font(.system(size: 12))
+                .foregroundColor(Color(uiColor: .secondaryLabel))
             Text(value)
-                .font(Theme.Typography.headline)
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(color)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Theme.Spacing.md)
-        .background(Theme.Colors.cardBackground)
-        .cornerRadius(Theme.CornerRadius.medium)
+        .padding(14)
+        .background(Color(uiColor: .systemBackground))
+        .cornerRadius(12)
     }
 }
 
-// MARK: - Goals List View (Improved with Calendar button)
+// MARK: - Goals List View
 struct GoalsListView: View {
     @ObservedObject var viewModel: BalanceViewModel
     @State private var showingAddGoal = false
     @State private var showingCalendar = false
     
+    private var savingsPots: [Goal] { viewModel.goals.filter { $0.goalType == .envelope } }
+    private var activeGoals: [Goal] { viewModel.goals.filter { $0.goalType == .goal && $0.progress < 100 } }
+    private var completedGoals: [Goal] { viewModel.goals.filter { $0.goalType == .goal && $0.progress >= 100 } }
+    
     var body: some View {
         List {
-            // Summary Card
             if !viewModel.goals.isEmpty {
                 Section {
-                    VStack(spacing: Theme.Spacing.md) {
-                        HStack(spacing: Theme.Spacing.xl) {
+                    VStack(spacing: 14) {
+                        HStack(spacing: 24) {
                             GoalSummaryItem(
-                                value: "\(viewModel.goals.count)",
-                                label: "Total Goals",
-                                color: .orange
+                                value: "\(viewModel.goals.filter { $0.goalType == .goal }.count)",
+                                label: "Goals",
+                                color: Theme.Colors.goals
                             )
                             GoalSummaryItem(
-                                value: "\(viewModel.goals.filter { $0.progress >= 100 }.count)",
-                                label: "Completed",
-                                color: Theme.Colors.income
-                            )
-                            GoalSummaryItem(
-                                value: "\(viewModel.goals.filter { $0.progress < 100 }.count)",
-                                label: "In Progress",
+                                value: "\(savingsPots.count)",
+                                label: "Pots",
                                 color: Theme.Colors.primary
+                            )
+                            GoalSummaryItem(
+                                value: "\(completedGoals.count)",
+                                label: "Done",
+                                color: Theme.Colors.income
                             )
                         }
                         
-                        // Calendar Button
                         Button(action: { showingCalendar = true }) {
-                            HStack {
+                            HStack(spacing: 6) {
                                 Image(systemName: "calendar")
+                                    .font(.system(size: 14))
                                 Text("View Goals Calendar")
+                                    .font(.system(size: 14, weight: .medium))
                             }
-                            .font(Theme.Typography.subheadline)
                             .foregroundColor(Theme.Colors.primary)
-                            .padding(Theme.Spacing.sm)
+                            .padding(10)
                             .frame(maxWidth: .infinity)
-                            .background(Theme.Colors.primary.opacity(0.1))
-                            .cornerRadius(Theme.CornerRadius.small)
+                            .background(Theme.Colors.primary.opacity(0.08))
+                            .cornerRadius(10)
                         }
                     }
                     .listRowBackground(Color.clear)
                 }
             }
             
-            // Active Goals
-            let activeGoals = viewModel.goals.filter { $0.progress < 100 }
+            if !savingsPots.isEmpty {
+                Section("Savings Pots") {
+                    ForEach(savingsPots) { pot in
+                        NavigationLink(destination: GoalDetailView(viewModel: viewModel, goal: pot)) {
+                            HStack(spacing: 12) {
+                                Image(systemName: pot.icon)
+                                    .font(.system(size: 16))
+                                    .foregroundColor(pot.colorValue)
+                                    .frame(width: 40, height: 40)
+                                    .background(pot.colorValue.opacity(0.12))
+                                    .clipShape(Circle())
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(pot.title)
+                                        .font(.system(size: 15, weight: .semibold))
+                                    Text("Savings Pot")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                                }
+                                
+                                Spacer()
+                                
+                                Text(formatCurrency(pot.currentAmount, currency: viewModel.appState.selectedCurrency))
+                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                    .foregroundColor(pot.colorValue)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                    .onDelete { indexSet in
+                        for index in indexSet { viewModel.deleteGoal(savingsPots[index]) }
+                    }
+                }
+            }
+            
             if !activeGoals.isEmpty {
                 Section("Active Goals") {
                     ForEach(activeGoals) { goal in
                         NavigationLink(destination: GoalDetailView(viewModel: viewModel, goal: goal)) {
-                            GoalRowView(
-                                goal: goal,
-                                status: viewModel.status(for: goal),
-                                currency: viewModel.appState.selectedCurrency
-                            )
+                            GoalRowView(goal: goal, status: viewModel.status(for: goal), currency: viewModel.appState.selectedCurrency)
                         }
+                    }
+                    .onDelete { indexSet in
+                        for index in indexSet { viewModel.deleteGoal(activeGoals[index]) }
                     }
                 }
             }
             
-            // Completed Goals
-            let completedGoals = viewModel.goals.filter { $0.progress >= 100 }
             if !completedGoals.isEmpty {
                 Section("Completed") {
                     ForEach(completedGoals) { goal in
                         NavigationLink(destination: GoalDetailView(viewModel: viewModel, goal: goal)) {
-                            GoalRowView(
-                                goal: goal,
-                                status: viewModel.status(for: goal),
-                                currency: viewModel.appState.selectedCurrency
-                            )
+                            GoalRowView(goal: goal, status: viewModel.status(for: goal), currency: viewModel.appState.selectedCurrency)
                         }
                     }
                 }
             }
             
-            // Empty State
             if viewModel.goals.isEmpty {
-                VStack(spacing: Theme.Spacing.md) {
+                VStack(spacing: 14) {
+                    Spacer().frame(height: 40)
+                    
                     Image(systemName: "target")
-                        .font(.system(size: 48))
-                        .foregroundColor(Theme.Colors.secondaryText)
+                        .font(.system(size: 44))
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
                     
                     Text("No Goals Yet")
-                        .font(Theme.Typography.headline)
+                        .font(.system(size: 17, weight: .semibold))
                     
-                    Text("Create your first savings goal to start tracking your progress!")
-                        .font(Theme.Typography.subheadline)
-                        .foregroundColor(Theme.Colors.secondaryText)
+                    Text("Create savings goals or pots\nto manage your money")
+                        .font(.system(size: 14))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
                         .multilineTextAlignment(.center)
                     
                     Button(action: { showingAddGoal = true }) {
-                        HStack {
+                        HStack(spacing: 6) {
                             Image(systemName: "plus.circle.fill")
                             Text("Create Goal")
                         }
-                        .font(Theme.Typography.headline)
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(Theme.Colors.primary)
                     }
-                    .padding(.top, Theme.Spacing.sm)
+                    .padding(.top, 8)
+                    
+                    Spacer()
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, Theme.Spacing.xxl)
                 .listRowBackground(Color.clear)
             }
         }
@@ -849,12 +876,8 @@ struct GoalsListView: View {
                 }
             }
         }
-        .sheet(isPresented: $showingAddGoal) {
-            AddGoalView(viewModel: viewModel)
-        }
-        .sheet(isPresented: $showingCalendar) {
-            GoalsCalendarView(viewModel: viewModel)
-        }
+        .sheet(isPresented: $showingAddGoal) { AddGoalView(viewModel: viewModel) }
+        .sheet(isPresented: $showingCalendar) { GoalsCalendarView(viewModel: viewModel) }
     }
 }
 
@@ -864,13 +887,13 @@ struct GoalSummaryItem: View {
     let color: Color
     
     var body: some View {
-        VStack(spacing: Theme.Spacing.xxs) {
+        VStack(spacing: 2) {
             Text(value)
-                .font(Theme.Typography.title2)
+                .font(.system(size: 22, weight: .bold, design: .rounded))
                 .foregroundColor(color)
             Text(label)
-                .font(Theme.Typography.caption)
-                .foregroundColor(Theme.Colors.secondaryText)
+                .font(.system(size: 11))
+                .foregroundColor(Color(uiColor: .secondaryLabel))
         }
     }
 }
@@ -881,11 +904,11 @@ struct GoalRowView: View {
     let currency: String
     
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 ZStack {
                     Circle()
-                        .fill(goal.colorValue.opacity(0.15))
+                        .fill(goal.colorValue.opacity(0.12))
                         .frame(width: 40, height: 40)
                     Image(systemName: goal.icon)
                         .font(.system(size: 16))
@@ -894,13 +917,13 @@ struct GoalRowView: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(goal.title)
-                        .font(Theme.Typography.headline)
+                        .font(.system(size: 15, weight: .semibold))
                     
-                    HStack(spacing: Theme.Spacing.xxs) {
+                    HStack(spacing: 4) {
                         Image(systemName: status.icon)
                             .font(.system(size: 10))
                         Text(status.label)
-                            .font(Theme.Typography.caption)
+                            .font(.system(size: 12))
                     }
                     .foregroundColor(status.color)
                 }
@@ -909,20 +932,19 @@ struct GoalRowView: View {
                 
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("\(Int(goal.progress))%")
-                        .font(Theme.Typography.headline)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(goal.colorValue)
                     
                     Text(formatCurrency(goal.currentAmount, currency: currency))
-                        .font(Theme.Typography.caption)
-                        .foregroundColor(Theme.Colors.secondaryText)
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
                 }
             }
             
-            // Progress bar
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Theme.Colors.secondaryBackground)
+                        .fill(Color(uiColor: .tertiarySystemFill))
                         .frame(height: 6)
                     
                     Capsule()
@@ -932,7 +954,7 @@ struct GoalRowView: View {
             }
             .frame(height: 6)
         }
-        .padding(.vertical, Theme.Spacing.xs)
+        .padding(.vertical, 6)
     }
 }
 
@@ -943,10 +965,10 @@ struct GoalDetailView: View {
     var body: some View {
         List {
             Section {
-                VStack(spacing: Theme.Spacing.md) {
+                VStack(spacing: 14) {
                     ZStack {
                         Circle()
-                            .fill(goal.colorValue.opacity(0.15))
+                            .fill(goal.colorValue.opacity(0.12))
                             .frame(width: 80, height: 80)
                         Image(systemName: goal.icon)
                             .font(.system(size: 36))
@@ -954,11 +976,11 @@ struct GoalDetailView: View {
                     }
                     
                     Text(goal.title)
-                        .font(Theme.Typography.title2)
+                        .font(.system(size: 22, weight: .bold))
                     
                     Text("\(Int(goal.progress))% complete")
-                        .font(Theme.Typography.subheadline)
-                        .foregroundColor(Theme.Colors.secondaryText)
+                        .font(.system(size: 14))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
                 }
                 .frame(maxWidth: .infinity)
                 .listRowBackground(Color.clear)
@@ -976,14 +998,14 @@ struct GoalDetailView: View {
                     Text("Target Amount")
                     Spacer()
                     Text(formatCurrency(goal.targetAmount, currency: viewModel.appState.selectedCurrency))
-                        .foregroundColor(Theme.Colors.secondaryText)
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
                 }
                 
                 HStack {
                     Text("Remaining")
                     Spacer()
                     Text(formatCurrency(max(0, goal.targetAmount - goal.currentAmount), currency: viewModel.appState.selectedCurrency))
-                        .foregroundColor(Theme.Colors.primaryText)
+                        .foregroundColor(Color(uiColor: .label))
                 }
             }
             
@@ -992,7 +1014,7 @@ struct GoalDetailView: View {
                     HStack {
                         Image(systemName: "calendar")
                             .foregroundColor(Theme.Colors.primary)
-                        Text(formatDate(deadline))
+                        Text(formatGoalDate(deadline))
                     }
                 }
             }
@@ -1001,7 +1023,7 @@ struct GoalDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
     
-    private func formatDate(_ date: Date) -> String {
+    private func formatGoalDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .long
         return formatter.string(from: date)
@@ -1016,37 +1038,38 @@ struct GoalsCalendarView: View {
         NavigationStack {
             List {
                 ForEach(viewModel.goals.filter { $0.deadline != nil }.sorted { ($0.deadline ?? Date()) < ($1.deadline ?? Date()) }) { goal in
-                    HStack {
+                    HStack(spacing: 12) {
                         ZStack {
                             Circle()
-                                .fill(goal.colorValue.opacity(0.15))
+                                .fill(goal.colorValue.opacity(0.12))
                                 .frame(width: 36, height: 36)
                             Image(systemName: goal.icon)
                                 .font(.system(size: 14))
                                 .foregroundColor(goal.colorValue)
                         }
                         
-                        VStack(alignment: .leading) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text(goal.title)
-                                .font(Theme.Typography.headline)
+                                .font(.system(size: 15, weight: .medium))
                             if let deadline = goal.deadline {
-                                Text("Deadline: \(formatDate(deadline))")
-                                    .font(Theme.Typography.caption)
-                                    .foregroundColor(Theme.Colors.secondaryText)
+                                Text(formatCalendarDate(deadline))
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Color(uiColor: .secondaryLabel))
                             }
                         }
                         
                         Spacer()
                         
                         Text("\(Int(goal.progress))%")
-                            .font(Theme.Typography.headline)
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
                             .foregroundColor(goal.colorValue)
                     }
                 }
                 
                 if viewModel.goals.filter({ $0.deadline != nil }).isEmpty {
                     Text("No goals with deadlines set")
-                        .foregroundColor(Theme.Colors.secondaryText)
+                        .font(.system(size: 14))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
@@ -1055,12 +1078,13 @@ struct GoalsCalendarView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
+                        .fontWeight(.semibold)
                 }
             }
         }
     }
     
-    private func formatDate(_ date: Date) -> String {
+    private func formatCalendarDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter.string(from: date)
@@ -1072,35 +1096,71 @@ struct AddGoalView: View {
     @ObservedObject var viewModel: BalanceViewModel
     @Environment(\.dismiss) private var dismiss
     
+    @State private var goalType: GoalType = .goal
     @State private var title = ""
     @State private var targetAmount = ""
     @State private var hasDeadline = false
     @State private var deadline = Date().addingTimeInterval(86400 * 30)
     @State private var selectedColorIndex = 0
+    @State private var selectedIcon = "star.fill"
+    
+    private let potIcons = ["banknote.fill", "chart.line.uptrend.xyaxis", "heart.fill", "graduationcap.fill", "airplane", "house.fill", "gift.fill", "leaf.fill"]
     
     var body: some View {
         NavigationStack {
             Form {
-                Section("Goal Details") {
-                    TextField("Goal Title", text: $title)
+                Section {
+                    Picker("Type", selection: $goalType) {
+                        ForEach(GoalType.allCases, id: \.self) { type in
+                            Text(type.rawValue).tag(type)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .listRowBackground(Color.clear)
+                }
+                
+                Section(goalType == .goal ? "Goal Details" : "Pot Details") {
+                    TextField(goalType == .goal ? "Goal Title" : "Pot Name (e.g., Savings)", text: $title)
                     
-                    HStack {
-                        Text(currencySymbol)
-                        TextField("Target Amount", text: $targetAmount)
-                            .keyboardType(.decimalPad)
+                    if goalType == .goal {
+                        HStack {
+                            Text(currencySymbol)
+                            TextField("Target Amount", text: $targetAmount)
+                                .keyboardType(.decimalPad)
+                        }
                     }
                 }
                 
-                Section("Deadline") {
-                    Toggle("Set Deadline", isOn: $hasDeadline)
-                    
-                    if hasDeadline {
-                        DatePicker("Deadline", selection: $deadline, in: Date()..., displayedComponents: .date)
+                if goalType == .goal {
+                    Section("Deadline") {
+                        Toggle("Set Deadline", isOn: $hasDeadline)
+                        
+                        if hasDeadline {
+                            DatePicker("Deadline", selection: $deadline, in: Date()..., displayedComponents: .date)
+                        }
+                    }
+                }
+                
+                if goalType == .envelope {
+                    Section("Icon") {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 10) {
+                            ForEach(potIcons, id: \.self) { icon in
+                                Button(action: { selectedIcon = icon }) {
+                                    Image(systemName: icon)
+                                        .font(.system(size: 16))
+                                        .foregroundColor(selectedIcon == icon ? .white : Color(uiColor: .label))
+                                        .frame(width: 36, height: 36)
+                                        .background(selectedIcon == icon ? Theme.Colors.categoryColors[selectedColorIndex] : Color(uiColor: .tertiarySystemFill))
+                                        .clipShape(Circle())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
                     }
                 }
                 
                 Section("Color") {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: Theme.Spacing.sm) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 10) {
                         ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
                             ColorPickerItem(
                                 color: Theme.Colors.categoryColors[index],
@@ -1111,7 +1171,7 @@ struct AddGoalView: View {
                     }
                 }
             }
-            .navigationTitle("New Goal")
+            .navigationTitle(goalType == .goal ? "New Goal" : "New Savings Pot")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -1119,7 +1179,8 @@ struct AddGoalView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Add") { addGoal() }
-                        .disabled(title.isEmpty || targetAmount.isEmpty)
+                        .fontWeight(.semibold)
+                        .disabled(title.isEmpty || (goalType == .goal && targetAmount.isEmpty))
                 }
             }
         }
@@ -1133,48 +1194,40 @@ struct AddGoalView: View {
     }
     
     private func addGoal() {
-        guard let amount = Double(targetAmount) else { return }
-        
         let colorHex = Theme.Colors.categoryColors[selectedColorIndex].toHex() ?? "#007AFF"
         
-        let goal = Goal(
-            title: title,
-            targetAmount: amount,
-            deadline: hasDeadline ? deadline : nil,
-            color: colorHex
-        )
+        if goalType == .envelope {
+            let pot = Goal(title: title, icon: selectedIcon, color: colorHex, goalType: .envelope)
+            viewModel.addGoal(pot)
+        } else {
+            guard let amount = Double(targetAmount) else { return }
+            let goal = Goal(title: title, targetAmount: amount, deadline: hasDeadline ? deadline : nil, color: colorHex, goalType: .goal)
+            viewModel.addGoal(goal)
+        }
         
-        viewModel.addGoal(goal)
         Haptics.success()
         dismiss()
     }
 }
 
-// MARK: - Financial Health View (Improved)
+// MARK: - Financial Health View
 struct FinancialHealthView: View {
     @ObservedObject var viewModel: BalanceViewModel
     
     private var healthScore: Int {
         var score = 50
-        
-        // Savings rate (30 points max)
         if viewModel.savingsRate >= 20 { score += 30 }
         else if viewModel.savingsRate >= 10 { score += 20 }
         else if viewModel.savingsRate > 0 { score += 10 }
-        
-        // Goals (10 points)
         if !viewModel.goals.isEmpty { score += 10 }
-        
-        // Tracking consistency (10 points)
         if viewModel.transactions.count > 10 { score += 10 }
-        
         return min(score, 100)
     }
     
     private var healthColor: Color {
         if healthScore >= 80 { return Theme.Colors.income }
-        else if healthScore >= 60 { return .yellow }
-        else if healthScore >= 40 { return .orange }
+        else if healthScore >= 60 { return Theme.Colors.goals }
+        else if healthScore >= 40 { return Theme.Colors.recurring }
         else { return Theme.Colors.expense }
     }
     
@@ -1186,42 +1239,42 @@ struct FinancialHealthView: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: Theme.Spacing.xl) {
-                // Score Circle
-                VStack(spacing: Theme.Spacing.md) {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 20) {
+                // Score
+                VStack(spacing: 14) {
                     ZStack {
                         Circle()
-                            .stroke(Theme.Colors.secondaryBackground, lineWidth: 16)
-                            .frame(width: 180, height: 180)
+                            .stroke(Color(uiColor: .tertiarySystemFill), lineWidth: 14)
+                            .frame(width: 170, height: 170)
                         
                         Circle()
                             .trim(from: 0, to: CGFloat(healthScore) / 100)
-                            .stroke(healthColor, style: StrokeStyle(lineWidth: 16, lineCap: .round))
-                            .frame(width: 180, height: 180)
+                            .stroke(healthColor, style: StrokeStyle(lineWidth: 14, lineCap: .round))
+                            .frame(width: 170, height: 170)
                             .rotationEffect(.degrees(-90))
                             .animation(.spring(response: 0.8), value: healthScore)
                         
-                        VStack(spacing: Theme.Spacing.xxs) {
+                        VStack(spacing: 2) {
                             Text("\(healthScore)")
-                                .font(.system(size: 56, weight: .bold, design: .rounded))
+                                .font(.system(size: 52, weight: .bold, design: .rounded))
                                 .foregroundColor(healthColor)
                             Text(healthLabel)
-                                .font(Theme.Typography.subheadline)
-                                .foregroundColor(Theme.Colors.secondaryText)
+                                .font(.system(size: 14))
+                                .foregroundColor(Color(uiColor: .secondaryLabel))
                         }
                     }
                     
                     Text("Your Financial Health Score")
-                        .font(Theme.Typography.caption)
-                        .foregroundColor(Theme.Colors.tertiaryText)
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
                 }
-                .padding(.top, Theme.Spacing.lg)
+                .padding(.top, 20)
                 
-                // Score Breakdown
-                VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                // Breakdown
+                VStack(alignment: .leading, spacing: 14) {
                     Text("Score Breakdown")
-                        .font(Theme.Typography.headline)
+                        .font(.system(size: 15, weight: .semibold))
                     
                     HealthScoreRow(
                         icon: "percent",
@@ -1238,81 +1291,62 @@ struct FinancialHealthView: View {
                         description: viewModel.goals.isEmpty ? "No goals set" : "\(viewModel.goals.count) goals active",
                         score: viewModel.goals.isEmpty ? 0 : 10,
                         maxScore: 10,
-                        color: .orange
+                        color: Theme.Colors.goals
                     )
                     
                     HealthScoreRow(
-                        icon: "list.bullet.clipboard.fill",
-                        title: "Tracking Consistency",
-                        description: "\(viewModel.transactions.count) transactions recorded",
+                        icon: "list.clipboard.fill",
+                        title: "Tracking",
+                        description: "\(viewModel.transactions.count) transactions",
                         score: viewModel.transactions.count > 10 ? 10 : 0,
                         maxScore: 10,
                         color: Theme.Colors.primary
                     )
                 }
-                .padding(Theme.Spacing.md)
-                .background(Theme.Colors.cardBackground)
-                .cornerRadius(Theme.CornerRadius.medium)
-                .padding(.horizontal, Theme.Spacing.md)
+                .padding(16)
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(16)
+                .padding(.horizontal, 16)
                 
                 // Tips
-                VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                VStack(alignment: .leading, spacing: 14) {
                     Text("How to Improve")
-                        .font(Theme.Typography.headline)
+                        .font(.system(size: 15, weight: .semibold))
                     
                     if viewModel.savingsRate < 20 {
-                        ImprovementTip(
-                            icon: "arrow.up.right.circle.fill",
-                            title: "Increase Savings",
-                            description: "Try to save at least 20% of your income each month.",
-                            color: Theme.Colors.income,
-                            action: "Set a budget"
-                        )
+                        ImprovementTip(icon: "arrow.up.right.circle.fill", title: "Increase Savings", description: "Try to save at least 20% of your income.", color: Theme.Colors.income, action: "Set a budget")
                     }
                     
                     if viewModel.goals.isEmpty {
-                        ImprovementTip(
-                            icon: "target",
-                            title: "Set Goals",
-                            description: "Create savings goals to stay motivated and track progress.",
-                            color: .orange,
-                            action: "Create goal"
-                        )
+                        ImprovementTip(icon: "target", title: "Set Goals", description: "Create savings goals to stay motivated.", color: Theme.Colors.goals, action: "Create goal")
                     }
                     
                     if viewModel.transactions.count < 10 {
-                        ImprovementTip(
-                            icon: "plus.circle.fill",
-                            title: "Track Everything",
-                            description: "Record all your transactions for better insights.",
-                            color: Theme.Colors.primary,
-                            action: "Add transaction"
-                        )
+                        ImprovementTip(icon: "plus.circle.fill", title: "Track Everything", description: "Record all transactions for better insights.", color: Theme.Colors.primary, action: "Add transaction")
                     }
                     
                     if healthScore >= 80 {
-                        HStack(spacing: Theme.Spacing.sm) {
+                        HStack(spacing: 10) {
                             Image(systemName: "star.fill")
-                                .foregroundColor(.yellow)
+                                .foregroundColor(Theme.Colors.goals)
                             Text("Great job! Keep up the good work!")
-                                .font(Theme.Typography.subheadline)
-                                .foregroundColor(Theme.Colors.secondaryText)
+                                .font(.system(size: 14))
+                                .foregroundColor(Color(uiColor: .secondaryLabel))
                         }
-                        .padding(Theme.Spacing.md)
+                        .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.yellow.opacity(0.1))
-                        .cornerRadius(Theme.CornerRadius.small)
+                        .background(Theme.Colors.goals.opacity(0.08))
+                        .cornerRadius(12)
                     }
                 }
-                .padding(Theme.Spacing.md)
-                .background(Theme.Colors.cardBackground)
-                .cornerRadius(Theme.CornerRadius.medium)
-                .padding(.horizontal, Theme.Spacing.md)
-                
-                Spacer(minLength: Theme.Spacing.xxl)
+                .padding(16)
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(16)
+                .padding(.horizontal, 16)
             }
+            .padding(.bottom, 32)
         }
-        .background(Theme.Colors.background)
+        .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("Financial Health")
     }
 }
@@ -1326,27 +1360,27 @@ struct HealthScoreRow: View {
     let color: Color
     
     var body: some View {
-        HStack(spacing: Theme.Spacing.sm) {
+        HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.system(size: 18))
                 .foregroundColor(color)
-                .frame(width: 32)
+                .frame(width: 28)
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(Theme.Typography.subheadline)
+                    .font(.system(size: 14, weight: .medium))
                 Text(description)
-                    .font(Theme.Typography.caption)
-                    .foregroundColor(Theme.Colors.secondaryText)
+                    .font(.system(size: 12))
+                    .foregroundColor(Color(uiColor: .secondaryLabel))
             }
             
             Spacer()
             
             Text("\(score)/\(maxScore)")
-                .font(Theme.Typography.headline)
-                .foregroundColor(score == maxScore ? color : Theme.Colors.secondaryText)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(score == maxScore ? color : Color(uiColor: .secondaryLabel))
         }
-        .padding(.vertical, Theme.Spacing.xs)
+        .padding(.vertical, 4)
     }
 }
 
@@ -1358,33 +1392,31 @@ struct ImprovementTip: View {
     let action: String
     
     var body: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+        HStack(alignment: .top, spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(color.opacity(0.15))
+                    .fill(color.opacity(0.12))
                     .frame(width: 36, height: 36)
                 Image(systemName: icon)
                     .font(.system(size: 16))
                     .foregroundColor(color)
             }
             
-            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(Theme.Typography.headline)
+                    .font(.system(size: 14, weight: .semibold))
                 Text(description)
-                    .font(Theme.Typography.caption)
-                    .foregroundColor(Theme.Colors.secondaryText)
-                
+                    .font(.system(size: 12))
+                    .foregroundColor(Color(uiColor: .secondaryLabel))
                 Text(action)
-                    .font(Theme.Typography.caption)
-                    .fontWeight(.medium)
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(color)
                     .padding(.top, 2)
             }
         }
-        .padding(Theme.Spacing.sm)
-        .background(color.opacity(0.05))
-        .cornerRadius(Theme.CornerRadius.small)
+        .padding(12)
+        .background(color.opacity(0.04))
+        .cornerRadius(12)
     }
 }
 
@@ -1394,7 +1426,7 @@ struct HealthTip: View {
     let description: String
     
     var body: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+        HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon)
                 .font(.title2)
                 .foregroundColor(Theme.Colors.primary)
@@ -1402,27 +1434,25 @@ struct HealthTip: View {
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(Theme.Typography.headline)
+                    .font(.system(size: 15, weight: .semibold))
                 Text(description)
-                    .font(Theme.Typography.subheadline)
-                    .foregroundColor(Theme.Colors.secondaryText)
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(uiColor: .secondaryLabel))
             }
         }
     }
 }
 
-// MARK: - Tips View (Improved with categories)
+// MARK: - Tips View
 struct TipsView: View {
     @State private var expandedSection: String? = "Budgeting Tips"
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: Theme.Spacing.md) {
-                // Featured Tip
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 14) {
                 FeaturedTipCard()
-                    .padding(.horizontal, Theme.Spacing.md)
+                    .padding(.horizontal, 16)
                 
-                // Tip Categories
                 TipCategoryCard(
                     title: "Budgeting Basics",
                     icon: "chart.pie.fill",
@@ -1454,7 +1484,7 @@ struct TipsView: View {
                 TipCategoryCard(
                     title: "Student Life",
                     icon: "graduationcap.fill",
-                    color: .purple,
+                    color: Color(hex: "AF52DE"),
                     tips: [
                         ("percent", "Student Discounts", "Always ask for student discounts everywhere you go"),
                         ("book.fill", "Buy Used", "Consider used textbooks and second-hand items"),
@@ -1469,7 +1499,7 @@ struct TipsView: View {
                 TipCategoryCard(
                     title: "Smart Spending",
                     icon: "cart.fill",
-                    color: .orange,
+                    color: Theme.Colors.recurring,
                     tips: [
                         ("tag.fill", "Compare Prices", "Always compare prices before buying"),
                         ("star.fill", "Use Rewards", "Take advantage of cashback and rewards programs"),
@@ -1480,44 +1510,42 @@ struct TipsView: View {
                     onToggle: { expandedSection = expandedSection == "Spending" ? nil : "Spending" }
                 )
             }
-            .padding(.vertical, Theme.Spacing.md)
+            .padding(.vertical, 14)
         }
-        .background(Theme.Colors.background)
+        .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("Tips & Guides")
     }
 }
 
 struct FeaturedTipCard: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            HStack {
-                Image(systemName: "lightbulb.fill")
-                    .font(.title2)
-                    .foregroundColor(.yellow)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "lightbulb.max.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(Theme.Colors.goals)
                 Text("Featured Tip")
-                    .font(Theme.Typography.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(Theme.Colors.secondaryText)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Color(uiColor: .secondaryLabel))
             }
             
             Text("The 50/30/20 Rule")
-                .font(Theme.Typography.title3)
-                .foregroundColor(Theme.Colors.primaryText)
+                .font(.system(size: 17, weight: .semibold))
             
-            Text("A simple budgeting framework: allocate 50% of your income to needs (rent, groceries), 30% to wants (entertainment, dining out), and 20% to savings and debt repayment.")
-                .font(Theme.Typography.subheadline)
-                .foregroundColor(Theme.Colors.secondaryText)
+            Text("A simple budgeting framework: allocate 50% of your income to needs, 30% to wants, and 20% to savings and debt repayment.")
+                .font(.system(size: 14))
+                .foregroundColor(Color(uiColor: .secondaryLabel))
                 .lineLimit(4)
         }
-        .padding(Theme.Spacing.lg)
+        .padding(18)
         .background(
             LinearGradient(
-                colors: [Color.yellow.opacity(0.15), Color.orange.opacity(0.1)],
+                colors: [Theme.Colors.goals.opacity(0.12), Theme.Colors.recurring.opacity(0.08)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
         )
-        .cornerRadius(Theme.CornerRadius.large)
+        .cornerRadius(16)
     }
 }
 
@@ -1531,71 +1559,68 @@ struct TipCategoryCard: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             Button(action: {
                 onToggle()
                 Haptics.light()
             }) {
-                HStack {
+                HStack(spacing: 12) {
                     ZStack {
                         Circle()
-                            .fill(color.opacity(0.15))
+                            .fill(color.opacity(0.12))
                             .frame(width: 40, height: 40)
                         Image(systemName: icon)
+                            .font(.system(size: 16))
                             .foregroundColor(color)
                     }
                     
                     Text(title)
-                        .font(Theme.Typography.headline)
-                        .foregroundColor(Theme.Colors.primaryText)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Color(uiColor: .label))
                     
                     Spacer()
                     
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 14))
-                        .foregroundColor(Theme.Colors.secondaryText)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
                 }
-                .padding(Theme.Spacing.md)
+                .padding(16)
             }
             
-            // Tips
             if isExpanded {
                 Divider()
                 
                 VStack(spacing: 0) {
                     ForEach(0..<tips.count, id: \.self) { index in
                         let tip = tips[index]
-                        HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+                        HStack(alignment: .top, spacing: 12) {
                             Image(systemName: tip.0)
-                                .font(.system(size: 16))
+                                .font(.system(size: 15))
                                 .foregroundColor(color)
                                 .frame(width: 24)
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(tip.1)
-                                    .font(Theme.Typography.subheadline)
-                                    .fontWeight(.medium)
+                                    .font(.system(size: 14, weight: .medium))
                                 Text(tip.2)
-                                    .font(Theme.Typography.caption)
-                                    .foregroundColor(Theme.Colors.secondaryText)
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Color(uiColor: .secondaryLabel))
                             }
                             
                             Spacer()
                         }
-                        .padding(Theme.Spacing.md)
+                        .padding(14)
                         
                         if index < tips.count - 1 {
-                            Divider()
-                                .padding(.leading, 48)
+                            Divider().padding(.leading, 52)
                         }
                     }
                 }
             }
         }
-        .background(Theme.Colors.cardBackground)
-        .cornerRadius(Theme.CornerRadius.medium)
-        .padding(.horizontal, Theme.Spacing.md)
-        .animation(.spring(response: 0.3), value: isExpanded)
+        .background(Color(uiColor: .systemBackground))
+        .cornerRadius(14)
+        .padding(.horizontal, 16)
+        .animation(.snappy(duration: 0.3), value: isExpanded)
     }
 }
 
@@ -1605,51 +1630,92 @@ struct TipRow: View {
     let description: String
     
     var body: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+        HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon)
                 .foregroundColor(Theme.Colors.primary)
                 .frame(width: 24)
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(Theme.Typography.headline)
+                    .font(.system(size: 15, weight: .semibold))
                 Text(description)
-                    .font(Theme.Typography.subheadline)
-                    .foregroundColor(Theme.Colors.secondaryText)
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(uiColor: .secondaryLabel))
             }
         }
-        .padding(.vertical, Theme.Spacing.xs)
+        .padding(.vertical, 4)
     }
 }
 
 // MARK: - Settings View
 struct SettingsView: View {
     @ObservedObject var viewModel: BalanceViewModel
+    @State private var spendingLimitText: String = ""
     
     var body: some View {
         List {
             Section("Preferences") {
                 NavigationLink(destination: CurrencySettingsView(viewModel: viewModel)) {
                     HStack {
+                        Image(systemName: "dollarsign.circle.fill")
+                            .foregroundColor(Theme.Colors.income)
+                            .frame(width: 24)
                         Text("Currency")
                         Spacer()
                         Text(viewModel.appState.selectedCurrency)
-                            .foregroundColor(Theme.Colors.secondaryText)
+                            .font(.system(size: 14))
+                            .foregroundColor(Color(uiColor: .secondaryLabel))
                     }
                 }
             }
             
+            Section(header: Text("Spending Limit"), footer: Text("Set your weekly spending limit. This powers the spending gauge on Home.")) {
+                HStack {
+                    Image(systemName: "gauge.with.dots.needle.33percent")
+                        .foregroundColor(Theme.Colors.primary)
+                        .frame(width: 24)
+                    Text("Weekly Limit")
+                    Spacer()
+                    TextField("0", text: $spendingLimitText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .font(.system(size: 15))
+                        .frame(width: 100)
+                        .onChange(of: spendingLimitText) { _, newValue in
+                            if let value = Double(newValue.replacingOccurrences(of: ",", with: ".")) {
+                                viewModel.appState.weeklySpendingLimit = value
+                                viewModel.saveData()
+                            }
+                        }
+                }
+            }
+            
             Section("Data") {
-                Button("Export Data") {
-                    // TODO: Implement export
+                Button(action: {}) {
+                    HStack {
+                        Image(systemName: "square.and.arrow.up")
+                            .foregroundColor(Theme.Colors.primary)
+                            .frame(width: 24)
+                        Text("Export Data")
+                            .foregroundColor(Color(uiColor: .label))
+                    }
                 }
                 
-                Button("Import Data") {
-                    // TODO: Implement import
+                Button(action: {}) {
+                    HStack {
+                        Image(systemName: "square.and.arrow.down")
+                            .foregroundColor(Theme.Colors.primary)
+                            .frame(width: 24)
+                        Text("Import Data")
+                            .foregroundColor(Color(uiColor: .label))
+                    }
                 }
             }
         }
         .navigationTitle("Settings")
+        .onAppear {
+            spendingLimitText = viewModel.appState.weeklySpendingLimit > 0 ? String(format: "%.0f", viewModel.appState.weeklySpendingLimit) : ""
+        }
     }
 }
 
@@ -1659,9 +1725,7 @@ struct CurrencySettingsView: View {
     @State private var searchText = ""
     
     private var filteredCurrencies: [Currency] {
-        if searchText.isEmpty {
-            return Currency.allCurrencies
-        }
+        if searchText.isEmpty { return Currency.allCurrencies }
         return Currency.allCurrencies.filter {
             $0.code.localizedCaseInsensitiveContains(searchText) ||
             $0.name.localizedCaseInsensitiveContains(searchText)
@@ -1670,46 +1734,47 @@ struct CurrencySettingsView: View {
     
     var body: some View {
         List {
-            // Search Field
-            HStack(spacing: Theme.Spacing.sm) {
+            HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundColor(Theme.Colors.secondaryText)
+                    .foregroundColor(Color(uiColor: .secondaryLabel))
                 TextField("Search currency", text: $searchText)
-                    .font(Theme.Typography.body)
+                    .font(.system(size: 15))
                 if !searchText.isEmpty {
                     Button(action: { searchText = "" }) {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(Theme.Colors.secondaryText)
+                            .foregroundColor(Color(uiColor: .tertiaryLabel))
                     }
                 }
             }
-            .padding(Theme.Spacing.sm)
-            .background(Theme.Colors.secondaryBackground)
-            .cornerRadius(Theme.CornerRadius.medium)
+            .padding(10)
+            .background(Color(uiColor: .secondarySystemGroupedBackground))
+            .cornerRadius(10)
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             
             ForEach(filteredCurrencies) { currency in
                 Button(action: {
                     viewModel.appState.selectedCurrency = currency.code
+                    viewModel.saveData()
                     Haptics.selection()
                     dismiss()
                 }) {
-                    HStack {
+                    HStack(spacing: 10) {
                         Text(currency.flag)
                         Text(currency.code)
-                            .font(Theme.Typography.headline)
+                            .font(.system(size: 15, weight: .semibold))
                         Text(currency.name)
-                            .font(Theme.Typography.subheadline)
-                            .foregroundColor(Theme.Colors.secondaryText)
+                            .font(.system(size: 14))
+                            .foregroundColor(Color(uiColor: .secondaryLabel))
                         Spacer()
                         if viewModel.appState.selectedCurrency == currency.code {
                             Image(systemName: "checkmark")
+                                .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(Theme.Colors.primary)
                         }
                     }
                 }
-                .foregroundColor(Theme.Colors.primaryText)
+                .foregroundColor(Color(uiColor: .label))
             }
         }
         .navigationTitle("Currency")
@@ -1722,55 +1787,85 @@ struct HelpView: View {
         List {
             Section("Contact") {
                 Link(destination: URL(string: "mailto:support@balance.app")!) {
-                    HStack {
+                    HStack(spacing: 12) {
                         Image(systemName: "envelope.fill")
                             .foregroundColor(Theme.Colors.primary)
+                            .frame(width: 24)
                         Text("Email Support")
+                            .foregroundColor(Color(uiColor: .label))
                     }
                 }
             }
             
             Section("FAQ") {
-                Text("How do I add a transaction?")
-                    .font(Theme.Typography.headline)
-                Text("Go to the Record tab and enter the amount, select the type (income/expense/transfer), choose an account and category, then tap Record.")
-                    .font(Theme.Typography.subheadline)
-                    .foregroundColor(Theme.Colors.secondaryText)
+                FAQItem(question: "How do I add a transaction?", answer: "Go to the Record tab and enter the amount, select type, choose an account and category, then tap Record.")
+                
+                FAQItem(question: "How do I set a spending limit?", answer: "Go to More > Settings > Weekly Limit. This controls the spending gauge on Home.")
+                
+                FAQItem(question: "What are Savings Pots?", answer: "Savings Pots let you allocate money for specific purposes like savings, investments, or charity.")
+                
+                FAQItem(question: "How do recurring transactions work?", answer: "Set up recurring expenses or income in More > Recurring. The app will remind you when they're due.")
             }
         }
         .navigationTitle("Help & Support")
     }
 }
 
+private struct FAQItem: View {
+    let question: String
+    let answer: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(question)
+                .font(.system(size: 15, weight: .medium))
+            Text(answer)
+                .font(.system(size: 13))
+                .foregroundColor(Color(uiColor: .secondaryLabel))
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 // MARK: - About View
 struct AboutBalanceView: View {
     var body: some View {
-        VStack(spacing: Theme.Spacing.lg) {
+        VStack(spacing: 20) {
             Spacer()
             
             Image(systemName: "scale.3d")
-                .font(.system(size: 64))
+                .font(.system(size: 60))
                 .foregroundColor(Theme.Colors.primary)
             
             Text("Balance")
-                .font(Theme.Typography.title1)
+                .font(.system(size: 28, weight: .bold))
             
-            Text("Version 1.0")
-                .font(Theme.Typography.subheadline)
-                .foregroundColor(Theme.Colors.secondaryText)
+            Text("Version 3.0")
+                .font(.system(size: 14))
+                .foregroundColor(Color(uiColor: .secondaryLabel))
             
-            Text("Your personal finance companion\nfor students and young people")
-                .font(Theme.Typography.body)
-                .foregroundColor(Theme.Colors.secondaryText)
+            Text("Your personal finance companion")
+                .font(.system(size: 15))
+                .foregroundColor(Color(uiColor: .secondaryLabel))
                 .multilineTextAlignment(.center)
             
             Spacer()
             
-            Text("Made with ❤️ for Swift Student Challenge 2025")
-                .font(Theme.Typography.caption)
-                .foregroundColor(Theme.Colors.tertiaryText)
-                .padding(.bottom, Theme.Spacing.xl)
+            Text("Made to Change")
+                .font(.system(size: 12))
+                .foregroundColor(Color(uiColor: .tertiaryLabel))
+                .padding(.bottom, 1)
+            Text("by Choche Sanchez")
+                .font(.system(size: 12))
+                .foregroundColor(Color(uiColor: .tertiaryLabel))
+                .padding(.bottom, 24)
         }
         .navigationTitle("About")
+    }
+}
+
+#Preview {
+    NavigationStack {
+        MoreView(viewModel: BalanceViewModel())
     }
 }

@@ -1,7 +1,6 @@
 import SwiftUI
 
 // MARK: - Wallet View
-/// Displays Accounts and Categories with search icon (not bar) next to + icon
 struct WalletView: View {
     @ObservedObject var viewModel: BalanceViewModel
     @State private var selectedSegment = 0
@@ -12,43 +11,40 @@ struct WalletView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Search Bar (only when active)
             if showingSearch {
-                HStack(spacing: Theme.Spacing.sm) {
+                HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
-                        .foregroundColor(Theme.Colors.secondaryText)
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
                     
                     TextField("Search \(selectedSegment == 0 ? "accounts" : "categories")...", text: $searchText)
-                        .font(Theme.Typography.body)
+                        .font(.system(size: 15))
                     
                     Button(action: {
                         searchText = ""
                         showingSearch = false
                     }) {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(Theme.Colors.secondaryText)
+                            .foregroundColor(Color(uiColor: .secondaryLabel))
                     }
                 }
-                .padding(Theme.Spacing.sm)
-                .background(Theme.Colors.secondaryBackground)
-                .cornerRadius(Theme.CornerRadius.medium)
-                .padding(.horizontal, Theme.Spacing.md)
-                .padding(.top, Theme.Spacing.sm)
+                .padding(10)
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
             }
             
-            // Segment Control
             Picker("View", selection: $selectedSegment) {
                 Text("Accounts").tag(0)
                 Text("Categories").tag(1)
             }
             .pickerStyle(.segmented)
-            .padding(.horizontal, Theme.Spacing.md)
-            .padding(.vertical, Theme.Spacing.sm)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
             .onChange(of: selectedSegment) { oldValue, newValue in
                 searchText = ""
             }
             
-            // Content
             if selectedSegment == 0 {
                 AccountsListView(viewModel: viewModel, searchText: searchText, showingAddAccount: $showingAddAccount)
             } else {
@@ -60,24 +56,19 @@ struct WalletView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                HStack(spacing: Theme.Spacing.md) {
-                    // Search Icon
+                HStack(spacing: 16) {
                     Button(action: {
-                        showingSearch.toggle()
+                        withAnimation(.snappy) { showingSearch.toggle() }
                         if !showingSearch { searchText = "" }
                         Haptics.light()
                     }) {
                         Image(systemName: "magnifyingglass")
-                            .foregroundColor(showingSearch ? Theme.Colors.primary : Theme.Colors.primaryText)
+                            .foregroundColor(showingSearch ? Theme.Colors.primary : Color(uiColor: .label))
                     }
                     
-                    // Add Icon
                     Button(action: {
-                        if selectedSegment == 0 {
-                            showingAddAccount = true
-                        } else {
-                            showingAddCategory = true
-                        }
+                        if selectedSegment == 0 { showingAddAccount = true }
+                        else { showingAddCategory = true }
                         Haptics.light()
                     }) {
                         Image(systemName: "plus")
@@ -102,98 +93,121 @@ struct AccountsListView: View {
     @Binding var showingAddAccount: Bool
     
     private var filteredAccounts: [Account] {
-        if searchText.isEmpty {
-            return viewModel.accounts
-        }
+        if searchText.isEmpty { return viewModel.accounts }
         return viewModel.accounts.filter {
             $0.name.localizedCaseInsensitiveContains(searchText) ||
             $0.type.rawValue.localizedCaseInsensitiveContains(searchText)
         }
     }
     
+    private var totalBalance: Double { viewModel.totalBalance }
+    
+    private var totalIncome: Double {
+        viewModel.transactions.filter { $0.type == .income }.reduce(0) { $0 + $1.amount }
+    }
+    
+    private var totalExpense: Double {
+        viewModel.transactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
+    }
+    
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: Theme.Spacing.sm) {
-                // Total Balance Card
-                TotalBalanceCard(balance: viewModel.totalBalance, currency: viewModel.appState.selectedCurrency)
-                    .padding(.horizontal, Theme.Spacing.md)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 16) {
+                // Total Balance Header
+                VStack(spacing: 4) {
+                    Text("Total Balance")
+                        .font(.system(size: 13))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                    
+                    Text(formatCurrency(totalBalance, currency: viewModel.appState.selectedCurrency))
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundColor(Color(uiColor: .label))
+                        .contentTransition(.numericText(value: totalBalance))
+                        .animation(.snappy, value: totalBalance)
+                    
+                    HStack(spacing: 20) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.down")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(Theme.Colors.income)
+                            Text(formatCompactAmount(totalIncome, currency: viewModel.appState.selectedCurrency))
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(Theme.Colors.income)
+                        }
+                        
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.up")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(Theme.Colors.expense)
+                            Text(formatCompactAmount(totalExpense, currency: viewModel.appState.selectedCurrency))
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(Theme.Colors.expense)
+                        }
+                    }
+                    .padding(.top, 2)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(16)
+                .padding(.horizontal, 16)
                 
-                // Accounts Section
-                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                    Text("My Accounts")
-                        .font(Theme.Typography.headline)
-                        .foregroundColor(Theme.Colors.primaryText)
-                        .padding(.horizontal, Theme.Spacing.md)
+                // Accounts
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("MY ACCOUNTS")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                        .padding(.horizontal, 20)
                     
                     if filteredAccounts.isEmpty {
-                        EmptyStateView(
+                        WalletEmptyState(
                             icon: "wallet.pass.fill",
-                            title: "No accounts found",
-                            message: searchText.isEmpty ? "Add your first account to get started" : "Try a different search"
+                            title: "No accounts yet",
+                            message: searchText.isEmpty ? "Add your first account to start tracking" : "No accounts match your search",
+                            buttonTitle: searchText.isEmpty ? "Add Account" : nil,
+                            action: { showingAddAccount = true }
                         )
-                        .padding(.horizontal, Theme.Spacing.md)
                     } else {
                         VStack(spacing: 0) {
-                            ForEach(filteredAccounts) { account in
+                            ForEach(Array(filteredAccounts.enumerated()), id: \.element.id) { index, account in
                                 NavigationLink(destination: AccountDetailView(viewModel: viewModel, account: account)) {
                                     AccountRowView(
                                         account: account,
                                         balance: viewModel.balanceForAccount(account),
+                                        txCount: viewModel.transactionsForAccount(account).count,
                                         currency: viewModel.appState.selectedCurrency
                                     )
                                 }
                                 
-                                if account.id != filteredAccounts.last?.id {
-                                    Divider()
-                                        .padding(.leading, 60)
+                                if index < filteredAccounts.count - 1 {
+                                    Divider().padding(.leading, 68)
                                 }
                             }
                         }
-                .background(Color(uiColor: .systemBackground))
-                .cornerRadius(14)
-                .padding(.horizontal, 16)
+                        .background(Color(uiColor: .systemBackground))
+                        .cornerRadius(14)
+                        .padding(.horizontal, 16)
                     }
                 }
             }
             .padding(.vertical, 16)
+            .padding(.bottom, 16)
         }
     }
 }
 
-// MARK: - Total Balance Card
-struct TotalBalanceCard: View {
-    let balance: Double
-    let currency: String
-    
-    var body: some View {
-        VStack(spacing: 4) {
-            Text("Total Balance")
-                .font(.system(size: 14))
-                .foregroundColor(Color(uiColor: .secondaryLabel))
-            
-            Text(formatCurrency(balance, currency: currency))
-                .font(.system(size: 30, weight: .bold, design: .rounded))
-                .foregroundColor(Color(uiColor: .label))
-        }
-        .frame(maxWidth: .infinity)
-        .padding(20)
-        .background(Color(uiColor: .systemBackground))
-        .cornerRadius(16)
-    }
-}
-
-// MARK: - Account Row View (Balance always black, original icon color)
+// MARK: - Account Row View
 struct AccountRowView: View {
     let account: Account
     let balance: Double
+    let txCount: Int
     let currency: String
     
     var body: some View {
-        HStack(spacing: Theme.Spacing.sm) {
-            // Icon with USER'S CHOSEN COLOR (original color, not grey)
+        HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(account.colorValue.opacity(0.15))
+                    .fill(account.colorValue.opacity(0.12))
                     .frame(width: 44, height: 44)
                 
                 Image(systemName: account.icon)
@@ -201,42 +215,38 @@ struct AccountRowView: View {
                     .foregroundColor(account.colorValue)
             }
             
-            // Name
             VStack(alignment: .leading, spacing: 2) {
                 Text(account.name)
-                    .font(Theme.Typography.headline)
-                    .foregroundColor(Theme.Colors.primaryText)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Color(uiColor: .label))
                 
-                HStack(spacing: Theme.Spacing.xxs) {
+                HStack(spacing: 4) {
                     Text(account.type.rawValue)
-                        .font(Theme.Typography.caption)
-                        .foregroundColor(Theme.Colors.secondaryText)
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
                     
-                    // Show note if exists
-                    if let note = account.note, !note.isEmpty {
-                        Text("•")
-                            .font(Theme.Typography.caption)
-                            .foregroundColor(Theme.Colors.tertiaryText)
-                        Text(note)
-                            .font(Theme.Typography.caption)
-                            .foregroundColor(Theme.Colors.tertiaryText)
-                            .lineLimit(1)
-                    }
+                    Text("\u{2022}")
+                        .font(.system(size: 8))
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
+                    
+                    Text("\(txCount) transactions")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
                 }
             }
             
             Spacer()
             
-            // Balance - ALWAYS BLACK (green only for income transactions, not account balance)
             Text(formatCurrency(balance, currency: currency))
-                .font(Theme.Typography.transactionAmount)
-                .foregroundColor(Theme.Colors.primaryText)
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundColor(Color(uiColor: .label))
             
             Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundColor(Theme.Colors.tertiaryText)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(Color(uiColor: .quaternaryLabel))
         }
-        .padding(Theme.Spacing.sm)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 }
 
@@ -247,56 +257,32 @@ struct CategoriesListView: View {
     @Binding var showingAddCategory: Bool
     
     private var filteredExpenseCategories: [Category] {
-        let categories = viewModel.expenseCategories
-        if searchText.isEmpty { return categories }
-        return categories.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        let cats = viewModel.expenseCategories
+        if searchText.isEmpty { return cats }
+        return cats.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
     }
     
     private var filteredIncomeCategories: [Category] {
-        let categories = viewModel.incomeCategories
-        if searchText.isEmpty { return categories }
-        return categories.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        let cats = viewModel.incomeCategories
+        if searchText.isEmpty { return cats }
+        return cats.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
     }
     
-    private var hasAnyCategories: Bool {
-        !viewModel.categories.isEmpty
-    }
+    private var hasAnyCategories: Bool { !viewModel.categories.isEmpty }
     
     var body: some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             if !hasAnyCategories {
-                // Clean empty state -- no section headers
-                VStack(spacing: 16) {
-                    Spacer().frame(height: 60)
-                    
-                    Image(systemName: "square.grid.2x2")
-                        .font(.system(size: 44))
-                        .foregroundColor(Color(uiColor: .tertiaryLabel))
-                    
-                    Text("No Categories Yet")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(Color(uiColor: .label))
-                    
-                    Text("Create categories to organize\nyour transactions")
-                        .font(.system(size: 14))
-                        .foregroundColor(Color(uiColor: .secondaryLabel))
-                        .multilineTextAlignment(.center)
-                    
-                    Button(action: { showingAddCategory = true }) {
-                        Text("Add Category")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(width: 180, height: 46)
-                            .background(Theme.Colors.primary)
-                            .cornerRadius(12)
-                    }
-                    .buttonStyle(PressEffectButtonStyle())
-                    .padding(.top, 8)
-                }
-                .frame(maxWidth: .infinity)
+                WalletEmptyState(
+                    icon: "square.grid.2x2",
+                    title: "No Categories Yet",
+                    message: "Create categories to organize\nyour transactions",
+                    buttonTitle: "Add Category",
+                    action: { showingAddCategory = true }
+                )
+                .padding(.top, 40)
             } else {
                 VStack(spacing: 20) {
-                    // Expense Categories
                     if !filteredExpenseCategories.isEmpty {
                         CategorySection(
                             title: "Expense",
@@ -305,7 +291,6 @@ struct CategoriesListView: View {
                         )
                     }
                     
-                    // Income Categories
                     if !filteredIncomeCategories.isEmpty {
                         CategorySection(
                             title: "Income",
@@ -314,7 +299,6 @@ struct CategoriesListView: View {
                         )
                     }
                     
-                    // If searching and no results
                     if filteredExpenseCategories.isEmpty && filteredIncomeCategories.isEmpty {
                         VStack(spacing: 12) {
                             Image(systemName: "magnifyingglass")
@@ -329,6 +313,7 @@ struct CategoriesListView: View {
                     }
                 }
                 .padding(.vertical, 16)
+                .padding(.bottom, 16)
             }
         }
     }
@@ -339,18 +324,31 @@ struct CategorySection: View {
     let categories: [Category]
     @ObservedObject var viewModel: BalanceViewModel
     
+    private var sectionTotal: Double {
+        categories.reduce(0) { sum, cat in
+            sum + viewModel.transactionsForCategory(cat).reduce(0) { $0 + $1.amount }
+        }
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(Color(uiColor: .secondaryLabel))
-                .textCase(.uppercase)
-                .padding(.horizontal, 20)
+            HStack {
+                Text(title.uppercased())
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Color(uiColor: .secondaryLabel))
+                
+                Spacer()
+                
+                Text("\(categories.count) categories")
+                    .font(.system(size: 12))
+                    .foregroundColor(Color(uiColor: .tertiaryLabel))
+            }
+            .padding(.horizontal, 20)
             
             VStack(spacing: 0) {
                 ForEach(Array(categories.enumerated()), id: \.element.id) { index, category in
                     NavigationLink(destination: CategoryMetricsView(viewModel: viewModel, category: category)) {
-                        CategoryRowView(category: category)
+                        CategoryRowView(category: category, viewModel: viewModel)
                     }
                     
                     if index < categories.count - 1 {
@@ -367,6 +365,15 @@ struct CategorySection: View {
 
 struct CategoryRowView: View {
     let category: Category
+    @ObservedObject var viewModel: BalanceViewModel
+    
+    private var txCount: Int {
+        viewModel.transactionsForCategory(category).count
+    }
+    
+    private var totalAmount: Double {
+        viewModel.transactionsForCategory(category).reduce(0) { $0 + $1.amount }
+    }
     
     var body: some View {
         HStack(spacing: 12) {
@@ -377,12 +384,17 @@ struct CategoryRowView: View {
                 .background(category.colorValue.opacity(0.12))
                 .clipShape(Circle())
             
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(category.name)
                     .font(.system(size: 15, weight: .medium))
                     .foregroundColor(Color(uiColor: .label))
                 
-                if let note = category.note, !note.isEmpty {
+                if txCount > 0 {
+                    Text("\(txCount) transactions \u{2022} \(formatCurrency(totalAmount, currency: viewModel.appState.selectedCurrency))")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                        .lineLimit(1)
+                } else if let note = category.note, !note.isEmpty {
                     Text(note)
                         .font(.system(size: 12))
                         .foregroundColor(Color(uiColor: .secondaryLabel))
@@ -393,11 +405,51 @@ struct CategoryRowView: View {
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundColor(Color(uiColor: .quaternaryLabel))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+    }
+}
+
+// MARK: - Wallet Empty State
+struct WalletEmptyState: View {
+    let icon: String
+    let title: String
+    let message: String
+    var buttonTitle: String? = nil
+    var action: (() -> Void)? = nil
+    
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 40))
+                .foregroundColor(Color(uiColor: .tertiaryLabel))
+            
+            Text(title)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(Color(uiColor: .label))
+            
+            Text(message)
+                .font(.system(size: 14))
+                .foregroundColor(Color(uiColor: .secondaryLabel))
+                .multilineTextAlignment(.center)
+            
+            if let buttonTitle, let action {
+                Button(action: action) {
+                    Text(buttonTitle)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 180, height: 44)
+                        .background(Theme.Colors.primary)
+                        .cornerRadius(12)
+                }
+                .padding(.top, 4)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 32)
     }
 }
 
@@ -407,7 +459,6 @@ struct CategoryMetricsView: View {
     let category: Category
     @State private var selectedTimeRange: TimeRange = .monthly
     
-    // MARK: - Computed Properties
     private var stats: CategoryStat {
         viewModel.categoryStats(for: category, in: selectedTimeRange)
     }
@@ -431,206 +482,220 @@ struct CategoryMetricsView: View {
     }
     
     var body: some View {
-        List {
-            // Header
-            Section {
-                HStack {
-                    Spacer()
-                    VStack(spacing: Theme.Spacing.sm) {
-                        ZStack {
-                            Circle()
-                                .fill(category.colorValue.opacity(0.15))
-                                .frame(width: 80, height: 80)
-                            
-                            Image(systemName: category.icon)
-                                .font(.system(size: 36))
-                                .foregroundColor(category.colorValue)
-                        }
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 16) {
+                // Header
+                VStack(spacing: 10) {
+                    ZStack {
+                        Circle()
+                            .fill(category.colorValue.opacity(0.12))
+                            .frame(width: 72, height: 72)
                         
-                        Text(category.name)
-                            .font(Theme.Typography.title2)
-                        
-                        Text(category.type.rawValue)
-                            .font(Theme.Typography.subheadline)
-                            .foregroundColor(Theme.Colors.secondaryText)
-                        
-                        if let note = category.note, !note.isEmpty {
-                            Text(note)
-                                .font(Theme.Typography.caption)
-                                .foregroundColor(Theme.Colors.tertiaryText)
-                        }
+                        Image(systemName: category.icon)
+                            .font(.system(size: 30))
+                            .foregroundColor(category.colorValue)
                     }
-                    Spacer()
+                    
+                    Text(category.name)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(Color(uiColor: .label))
+                    
+                    Text(category.type.rawValue)
+                        .font(.system(size: 13))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                    
+                    if let note = category.note, !note.isEmpty {
+                        Text(note)
+                            .font(.system(size: 12))
+                            .foregroundColor(Color(uiColor: .tertiaryLabel))
+                    }
                 }
-                .listRowBackground(Color.clear)
-            }
-            
-            // Time Range Selector
-            Section {
-                VStack(spacing: Theme.Spacing.sm) {
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(16)
+                
+                // Period Selector + Amount
+                VStack(spacing: 14) {
                     TimeScopeSelector(selected: $selectedTimeRange, showAllOptions: false)
                     
-                    // Total for period with delta
-                    VStack(spacing: Theme.Spacing.xxs) {
+                    VStack(spacing: 4) {
                         Text("Total \(selectedTimeRange.shortTitle)")
-                            .font(Theme.Typography.caption)
-                            .foregroundColor(Theme.Colors.secondaryText)
+                            .font(.system(size: 12))
+                            .foregroundColor(Color(uiColor: .secondaryLabel))
                         
                         Text(formatCurrency(stats.total, currency: viewModel.appState.selectedCurrency))
-                            .font(Theme.Typography.balanceAmount)
+                            .font(.system(size: 28, weight: .bold, design: .rounded))
                             .foregroundColor(category.colorValue)
+                            .contentTransition(.numericText(value: stats.total))
+                            .animation(.snappy, value: stats.total)
                         
-                        // Delta indicator
                         if let delta = stats.deltaFromPrevious, abs(delta) > 0.01 {
-                            HStack(spacing: Theme.Spacing.xxs) {
+                            HStack(spacing: 4) {
                                 Image(systemName: delta >= 0 ? "arrow.up.right" : "arrow.down.right")
-                                    .font(.system(size: 12, weight: .semibold))
-                                Text("\(Int(abs(delta * 100)))% vs last \(selectedTimeRange.shortTitle.lowercased())")
-                                    .font(Theme.Typography.caption)
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text("\(Int(abs(delta * 100)))% vs last period")
+                                    .font(.system(size: 12))
                             }
                             .foregroundColor(category.type == .expense ? (delta >= 0 ? Theme.Colors.expense : Theme.Colors.income) : (delta >= 0 ? Theme.Colors.income : Theme.Colors.expense))
                         }
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Theme.Spacing.sm)
                 }
-                .listRowBackground(Color.clear)
-            }
-            
-            // Budget Status (if has budget)
-            if let status = budgetStatus, category.budget != nil {
-                Section("Budget") {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                .frame(maxWidth: .infinity)
+                .padding(18)
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(16)
+                
+                // Budget Status
+                if let status = budgetStatus, category.budget != nil {
+                    let budget = category.budget ?? 0
+                    let spent = viewModel.spendingForCategory(category)
+                    
+                    VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            Text("Status")
-                                .font(Theme.Typography.subheadline)
-                                .foregroundColor(Theme.Colors.secondaryText)
+                            Text("Budget")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(Color(uiColor: .label))
                             
                             Spacer()
                             
-                            HStack(spacing: Theme.Spacing.xxs) {
+                            HStack(spacing: 4) {
                                 Image(systemName: status.icon)
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 11))
                                 Text(status.label)
-                                    .font(Theme.Typography.caption)
-                                    .fontWeight(.semibold)
+                                    .font(.system(size: 12, weight: .semibold))
                             }
                             .foregroundColor(status.color)
-                            .padding(.horizontal, Theme.Spacing.sm)
-                            .padding(.vertical, Theme.Spacing.xxs)
-                            .background(status.color.opacity(0.15))
-                            .cornerRadius(Theme.CornerRadius.small)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(status.color.opacity(0.12))
+                            .cornerRadius(6)
                         }
                         
-                        // Progress bar
-                        let budget = category.budget ?? 0
-                        let spent = viewModel.spendingForCategory(category)
-                        
-                        GeometryReader { geometry in
+                        GeometryReader { geo in
                             ZStack(alignment: .leading) {
                                 Capsule()
-                                    .fill(Theme.Colors.secondaryBackground)
-                                    .frame(height: 8)
+                                    .fill(Color(uiColor: .tertiarySystemFill))
+                                    .frame(height: 6)
                                 
                                 Capsule()
                                     .fill(status.color)
-                                    .frame(width: geometry.size.width * CGFloat(min(spent / budget, 1.0)), height: 8)
+                                    .frame(width: geo.size.width * CGFloat(min(spent / budget, 1.0)), height: 6)
                             }
                         }
-                        .frame(height: 8)
+                        .frame(height: 6)
                         
                         HStack {
                             Text("\(formatCurrency(spent, currency: viewModel.appState.selectedCurrency)) spent")
+                                .font(.system(size: 12))
+                                .foregroundColor(Color(uiColor: .secondaryLabel))
                             Spacer()
                             Text("of \(formatCurrency(budget, currency: viewModel.appState.selectedCurrency))")
+                                .font(.system(size: 12))
+                                .foregroundColor(Color(uiColor: .secondaryLabel))
                         }
-                        .font(Theme.Typography.caption)
-                        .foregroundColor(Theme.Colors.secondaryText)
+                    }
+                    .padding(18)
+                    .background(Color(uiColor: .systemBackground))
+                    .cornerRadius(16)
+                }
+                
+                // Statistics Grid
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Statistics")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Color(uiColor: .label))
+                    
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                        WalletStatCard(
+                            icon: "number.circle.fill",
+                            title: "Transactions",
+                            value: "\(stats.transactionCount)",
+                            color: category.colorValue
+                        )
+                        
+                        WalletStatCard(
+                            icon: "percent",
+                            title: "% of Total",
+                            value: String(format: "%.0f%%", stats.percentOfTotal * 100),
+                            color: Theme.Colors.primary
+                        )
+                        
+                        WalletStatCard(
+                            icon: "chart.bar.fill",
+                            title: "Monthly Avg",
+                            value: formatCompactAmount(monthlyAverage, currency: viewModel.appState.selectedCurrency),
+                            color: Theme.Colors.recurring
+                        )
+                        
+                        if stats.transactionCount > 0 {
+                            WalletStatCard(
+                                icon: "divide.circle.fill",
+                                title: "Avg / Transaction",
+                                value: formatCompactAmount(stats.averageTransaction, currency: viewModel.appState.selectedCurrency),
+                                color: Theme.Colors.transfer
+                            )
+                        }
                     }
                 }
-            }
-            
-            // Quick Stats
-            Section("Statistics") {
-                MetricRow(
-                    icon: "number.circle.fill",
-                    title: "Transactions",
-                    value: "\(stats.transactionCount)",
-                    color: Theme.Colors.secondaryText
-                )
+                .padding(18)
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(16)
                 
-                MetricRow(
-                    icon: "percent",
-                    title: "% of Total",
-                    value: String(format: "%.0f%%", stats.percentOfTotal * 100),
-                    color: Theme.Colors.primary
-                )
-                
-                MetricRow(
-                    icon: "chart.bar.fill",
-                    title: "Monthly Average",
-                    value: formatCurrency(monthlyAverage, currency: viewModel.appState.selectedCurrency),
-                    color: Theme.Colors.primary
-                )
-                
-                if stats.transactionCount > 0 {
-                    MetricRow(
-                        icon: "divide.circle.fill",
-                        title: "Avg per Transaction",
-                        value: formatCurrency(stats.averageTransaction, currency: viewModel.appState.selectedCurrency),
-                        color: category.colorValue
-                    )
-                }
-            }
-            
-            // Last Transaction
-            if let last = lastTransaction {
-                Section("Last Transaction") {
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(last.title.isEmpty ? "No title" : last.title)
-                                .font(Theme.Typography.headline)
-                            Text(formatDate(last.date))
-                                .font(Theme.Typography.caption)
-                                .foregroundColor(Theme.Colors.secondaryText)
-                        }
-                        Spacer()
-                        Text(formatCurrency(last.amount, currency: viewModel.appState.selectedCurrency))
-                            .font(Theme.Typography.transactionAmount)
-                            .foregroundColor(category.type == .expense ? Theme.Colors.expense : Theme.Colors.income)
-                    }
-                }
-            }
-            
-            // Recent Transactions (filtered by time range)
-            Section("Recent Transactions") {
-                if periodTransactions.isEmpty {
-                    Text("No transactions in this period")
-                        .foregroundColor(Theme.Colors.secondaryText)
-                } else {
-                    ForEach(Array(periodTransactions.prefix(10))) { transaction in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(transaction.title.isEmpty ? category.name : transaction.title)
-                                    .font(Theme.Typography.body)
-                                Text(formatDate(transaction.date))
-                                    .font(Theme.Typography.caption)
-                                    .foregroundColor(Theme.Colors.secondaryText)
+                // Recent Transactions
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Recent Transactions")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Color(uiColor: .label))
+                    
+                    if periodTransactions.isEmpty {
+                        Text("No transactions in this period")
+                            .font(.system(size: 13))
+                            .foregroundColor(Color(uiColor: .tertiaryLabel))
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, 16)
+                    } else {
+                        VStack(spacing: 0) {
+                            ForEach(Array(periodTransactions.prefix(10).enumerated()), id: \.element.id) { index, tx in
+                                HStack(spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(tx.title.isEmpty ? category.name : tx.title)
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundColor(Color(uiColor: .label))
+                                        Text(formatDate(tx.date))
+                                            .font(.system(size: 11))
+                                            .foregroundColor(Color(uiColor: .tertiaryLabel))
+                                    }
+                                    Spacer()
+                                    Text(formatCurrency(tx.amount, currency: viewModel.appState.selectedCurrency))
+                                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                        .foregroundColor(category.type == .expense ? Theme.Colors.expense : Theme.Colors.income)
+                                }
+                                .padding(.vertical, 8)
+                                
+                                if index < min(periodTransactions.count, 10) - 1 {
+                                    Divider()
+                                }
                             }
-                            Spacer()
-                            Text(formatCurrency(transaction.amount, currency: viewModel.appState.selectedCurrency))
-                                .font(Theme.Typography.subheadline)
                         }
                     }
                 }
+                .padding(18)
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(16)
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+            .padding(.bottom, 16)
         }
+        .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle(category.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 NavigationLink(destination: EditCategoryView(viewModel: viewModel, category: category)) {
                     Text("Edit")
+                        .font(.system(size: 15, weight: .medium))
                 }
             }
         }
@@ -644,53 +709,286 @@ struct CategoryMetricsView: View {
     }
 }
 
-struct MetricRow: View {
+private struct WalletStatCard: View {
     let icon: String
     let title: String
     let value: String
     let color: Color
     
     var body: some View {
-        HStack {
+        VStack(alignment: .leading, spacing: 8) {
             Image(systemName: icon)
+                .font(.system(size: 16))
                 .foregroundColor(color)
-                .frame(width: 24)
-            
-            Text(title)
-                .foregroundColor(Theme.Colors.primaryText)
-            
-            Spacer()
             
             Text(value)
-                .font(Theme.Typography.headline)
-                .foregroundColor(color)
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundColor(Color(uiColor: .label))
+            
+            Text(title)
+                .font(.system(size: 11))
+                .foregroundColor(Color(uiColor: .secondaryLabel))
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .cornerRadius(12)
     }
 }
 
-// MARK: - Empty State View
-struct EmptyStateView: View {
-    let icon: String
-    let title: String
-    let message: String
+// MARK: - Account Detail View
+struct AccountDetailView: View {
+    @ObservedObject var viewModel: BalanceViewModel
+    let account: Account
+    
+    private var balance: Double { viewModel.balanceForAccount(account) }
+    
+    private var accountTransactions: [Transaction] {
+        viewModel.transactionsForAccount(account).sorted { $0.date > $1.date }
+    }
+    
+    private var accountIncome: Double {
+        accountTransactions.filter { $0.type == .income }.reduce(0) { $0 + $1.amount }
+    }
+    
+    private var accountExpense: Double {
+        accountTransactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
+    }
+    
+    private var monthlyTransactions: [Transaction] {
+        let cal = Calendar.current
+        let now = Date()
+        guard let startOfMonth = cal.date(from: cal.dateComponents([.year, .month], from: now)) else { return [] }
+        return accountTransactions.filter { $0.date >= startOfMonth }
+    }
+    
+    private var monthlyIncome: Double {
+        monthlyTransactions.filter { $0.type == .income }.reduce(0) { $0 + $1.amount }
+    }
+    
+    private var monthlyExpense: Double {
+        monthlyTransactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
+    }
     
     var body: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 16) {
+                // Header
+                VStack(spacing: 10) {
+                    ZStack {
+                        Circle()
+                            .fill(account.colorValue.opacity(0.12))
+                            .frame(width: 72, height: 72)
+                        
+                        Image(systemName: account.icon)
+                            .font(.system(size: 30))
+                            .foregroundColor(account.colorValue)
+                    }
+                    
+                    Text(account.name)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(Color(uiColor: .label))
+                    
+                    Text(account.type.rawValue)
+                        .font(.system(size: 13))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                    
+                    if let note = account.note, !note.isEmpty {
+                        Text(note)
+                            .font(.system(size: 12))
+                            .foregroundColor(Color(uiColor: .tertiaryLabel))
+                    }
+                    
+                    Text(formatCurrency(balance, currency: viewModel.appState.selectedCurrency))
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .foregroundColor(Color(uiColor: .label))
+                        .contentTransition(.numericText(value: balance))
+                        .animation(.snappy, value: balance)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(16)
+                
+                // This Month Overview
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("This Month")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Color(uiColor: .label))
+                    
+                    HStack(spacing: 10) {
+                        AccountMetricPill(
+                            icon: "arrow.down",
+                            label: "Income",
+                            amount: formatCompactAmount(monthlyIncome, currency: viewModel.appState.selectedCurrency),
+                            color: Theme.Colors.income
+                        )
+                        
+                        AccountMetricPill(
+                            icon: "arrow.up",
+                            label: "Expense",
+                            amount: formatCompactAmount(monthlyExpense, currency: viewModel.appState.selectedCurrency),
+                            color: Theme.Colors.expense
+                        )
+                        
+                        AccountMetricPill(
+                            icon: "number",
+                            label: "Records",
+                            amount: "\(monthlyTransactions.count)",
+                            color: Theme.Colors.primary
+                        )
+                    }
+                }
+                .padding(18)
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(16)
+                
+                // All-Time Stats
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("All-Time")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Color(uiColor: .label))
+                    
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                        WalletStatCard(
+                            icon: "arrow.down.circle.fill",
+                            title: "Total Income",
+                            value: formatCompactAmount(accountIncome, currency: viewModel.appState.selectedCurrency),
+                            color: Theme.Colors.income
+                        )
+                        
+                        WalletStatCard(
+                            icon: "arrow.up.circle.fill",
+                            title: "Total Expense",
+                            value: formatCompactAmount(accountExpense, currency: viewModel.appState.selectedCurrency),
+                            color: Theme.Colors.expense
+                        )
+                        
+                        WalletStatCard(
+                            icon: "number.circle.fill",
+                            title: "Transactions",
+                            value: "\(accountTransactions.count)",
+                            color: account.colorValue
+                        )
+                        
+                        WalletStatCard(
+                            icon: "banknote.fill",
+                            title: "Initial Balance",
+                            value: formatCompactAmount(account.initialBalance, currency: viewModel.appState.selectedCurrency),
+                            color: Color(uiColor: .secondaryLabel)
+                        )
+                    }
+                }
+                .padding(18)
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(16)
+                
+                // Recent Transactions
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Recent Transactions")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Color(uiColor: .label))
+                    
+                    if accountTransactions.isEmpty {
+                        Text("No transactions yet")
+                            .font(.system(size: 13))
+                            .foregroundColor(Color(uiColor: .tertiaryLabel))
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, 16)
+                    } else {
+                        VStack(spacing: 0) {
+                            ForEach(Array(accountTransactions.prefix(10).enumerated()), id: \.element.id) { index, tx in
+                                HStack(spacing: 12) {
+                                    let cat = viewModel.getCategory(by: tx.categoryId)
+                                    
+                                    Image(systemName: cat?.icon ?? "circle.fill")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(cat?.colorValue ?? Color(uiColor: .secondaryLabel))
+                                        .frame(width: 30, height: 30)
+                                        .background((cat?.colorValue ?? Color(uiColor: .secondaryLabel)).opacity(0.1))
+                                        .clipShape(Circle())
+                                    
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(tx.title.isEmpty ? (cat?.name ?? tx.type.rawValue) : tx.title)
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundColor(Color(uiColor: .label))
+                                        Text(formatRelativeDate(tx.date))
+                                            .font(.system(size: 11))
+                                            .foregroundColor(Color(uiColor: .tertiaryLabel))
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Text("\(tx.type == .expense ? "-" : "+")\(formatCurrency(tx.amount, currency: viewModel.appState.selectedCurrency))")
+                                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                        .foregroundColor(tx.type == .expense ? Theme.Colors.expense : Theme.Colors.income)
+                                }
+                                .padding(.vertical, 8)
+                                
+                                if index < min(accountTransactions.count, 10) - 1 {
+                                    Divider().padding(.leading, 42)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(18)
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(16)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+            .padding(.bottom, 16)
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .navigationTitle(account.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                NavigationLink(destination: EditAccountView(viewModel: viewModel, account: account)) {
+                    Text("Edit")
+                        .font(.system(size: 15, weight: .medium))
+                }
+            }
+        }
+    }
+    
+    private func formatRelativeDate(_ date: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(date) { return "Today" }
+        if cal.isDateInYesterday(date) { return "Yesterday" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: date)
+    }
+}
+
+private struct AccountMetricPill: View {
+    let icon: String
+    let label: String
+    let amount: String
+    let color: Color
+    
+    var body: some View {
+        VStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 40))
-                .foregroundColor(Theme.Colors.secondaryText)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(color)
             
-            Text(title)
-                .font(Theme.Typography.headline)
-                .foregroundColor(Theme.Colors.primaryText)
+            Text(amount)
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundColor(Color(uiColor: .label))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             
-            Text(message)
-                .font(Theme.Typography.subheadline)
-                .foregroundColor(Theme.Colors.secondaryText)
-                .multilineTextAlignment(.center)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundColor(Color(uiColor: .secondaryLabel))
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, Theme.Spacing.xl)
+        .padding(.vertical, 12)
+        .background(color.opacity(0.06))
+        .cornerRadius(12)
     }
 }
 
@@ -700,32 +998,31 @@ struct AddAccountView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var name = ""
-    @State private var selectedType: AccountType = .checking
+    @State private var selectedType: AccountType = .cash
     @State private var initialBalance = ""
-    @State private var selectedIcon = "building.columns.fill"
-    @State private var selectedColorIndex = 0
+    @State private var selectedIcon = "dollarsign.circle.fill"
+    @State private var selectedColorIndex = 13
     @State private var note = ""
+    @State private var showingCurrencyPicker = false
     
     private let accountIcons = [
-        "building.columns.fill", "banknote.fill", "creditcard.fill", "wallet.bifold.fill",
-        "chart.line.uptrend.xyaxis", "wallet.pass.fill", "creditcard.and.123",
-        "briefcase.fill", "bag.fill", "cart.fill", "safe.fill", "dollarsign.bank.building.fill",
-        "bitcoinsign.circle.fill", "eurosign.circle.fill", "yensign.circle.fill",
-        "sterlingsign.circle.fill", "pesosign.circle.fill", "rublesign.circle.fill",
-        "indianrupeesign.circle.fill", "turkishlirasign.circle.fill", "francsign.circle.fill",
-        "dollarsign.arrow.circlepath", "arrow.trianglehead.2.counterclockwise.rotate.90.circle.fill",
-        "chart.bar.fill", "percent", "banknote", "creditcard.viewfinder"
+        "building.columns.fill", "banknote.fill", "creditcard.fill", "wallet.pass.fill",
+        "dollarsign.circle.fill", "safe.fill", "briefcase.fill", "bag.fill",
+        "chart.line.uptrend.xyaxis", "chart.bar.fill", "iphone.gen3", "globe",
+        "bitcoinsign.circle.fill", "eurosign.circle.fill", "sterlingsign.circle.fill",
+        "yensign.circle.fill", "pesosign.circle.fill", "indianrupeesign.circle.fill",
+        "coloncurrencysign.circle.fill", "francsign.circle.fill",
+        "house.fill", "car.fill", "star.fill", "heart.fill",
     ]
     
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    // Preview
                     VStack(spacing: 10) {
                         ZStack {
                             Circle()
-                                .fill(Theme.Colors.categoryColors[selectedColorIndex].opacity(0.15))
+                                .fill(Theme.Colors.categoryColors[selectedColorIndex].opacity(0.12))
                                 .frame(width: 56, height: 56)
                             Image(systemName: selectedIcon)
                                 .font(.system(size: 24))
@@ -734,75 +1031,71 @@ struct AddAccountView: View {
                         Text(name.isEmpty ? "Account Name" : name)
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(name.isEmpty ? Color(uiColor: .tertiaryLabel) : Color(uiColor: .label))
+                        
+                        Text(selectedType.rawValue)
+                            .font(.system(size: 12))
+                            .foregroundColor(Color(uiColor: .secondaryLabel))
                     }
                     .padding(.vertical, 16)
                     
-                    // Details
                     VStack(spacing: 0) {
-                        HStack {
-                            Text("Name")
-                                .font(.system(size: 15))
-                                .foregroundColor(Color(uiColor: .label))
-                            Spacer()
+                        FormRow(label: "Name") {
                             TextField("Account Name", text: $name)
                                 .font(.system(size: 15))
                                 .multilineTextAlignment(.trailing)
-                                .foregroundColor(Color(uiColor: .label))
                         }
-                        .padding(.horizontal, 16).padding(.vertical, 12)
-                        
-                        Divider().padding(.leading, 16)
-                        
-                        Picker("Type", selection: $selectedType) {
-                            ForEach(AccountType.allCases, id: \.self) { type in
-                                Text(type.rawValue).tag(type)
-                            }
-                        }
-                        .padding(.horizontal, 16).padding(.vertical, 8)
                         
                         Divider().padding(.leading, 16)
                         
                         HStack {
-                            Text("Balance")
+                            Text("Type")
                                 .font(.system(size: 15))
                                 .foregroundColor(Color(uiColor: .label))
                             Spacer()
+                            Picker("Type", selection: $selectedType) {
+                                ForEach(AccountType.allCases, id: \.self) { type in
+                                    Text(type.rawValue).tag(type)
+                                }
+                            }
+                            .labelsHidden()
+                            .tint(Color(uiColor: .secondaryLabel))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        
+                        Divider().padding(.leading, 16)
+                        
+                        FormRow(label: "Balance") {
                             TextField("0.00", text: $initialBalance)
                                 .font(.system(size: 15))
                                 .keyboardType(.decimalPad)
                                 .multilineTextAlignment(.trailing)
-                            Text(currencySymbol)
-                                .font(.system(size: 13))
-                                .foregroundColor(Color(uiColor: .secondaryLabel))
+                            
+                            Button(action: { showingCurrencyPicker = true }) {
+                                Text(viewModel.appState.selectedCurrency)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(Theme.Colors.primary)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                                    .background(Theme.Colors.primary.opacity(0.08))
+                                    .cornerRadius(6)
+                            }
                         }
-                        .padding(.horizontal, 16).padding(.vertical, 12)
                         
                         Divider().padding(.leading, 16)
                         
-                        HStack {
-                            Text("Note")
-                                .font(.system(size: 15))
-                                .foregroundColor(Color(uiColor: .label))
-                            Spacer()
+                        FormRow(label: "Note") {
                             TextField("Optional", text: $note)
                                 .font(.system(size: 15))
                                 .multilineTextAlignment(.trailing)
                                 .foregroundColor(Color(uiColor: .secondaryLabel))
                         }
-                        .padding(.horizontal, 16).padding(.vertical, 12)
                     }
                     .background(Color(uiColor: .systemBackground))
                     .cornerRadius(14)
                     .padding(.horizontal, 16)
                     
-                    // Icon
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Icon")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Color(uiColor: .secondaryLabel))
-                            .textCase(.uppercase)
-                            .padding(.horizontal, 20)
-                        
+                    PickerSection(title: "Icon") {
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
                             ForEach(accountIcons, id: \.self) { icon in
                                 IconPickerItem(
@@ -813,21 +1106,10 @@ struct AddAccountView: View {
                                 )
                             }
                         }
-                        .padding(14)
-                        .background(Color(uiColor: .systemBackground))
-                        .cornerRadius(14)
-                        .padding(.horizontal, 16)
                     }
                     
-                    // Color
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Color")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Color(uiColor: .secondaryLabel))
-                            .textCase(.uppercase)
-                            .padding(.horizontal, 20)
-                        
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 10) {
+                    PickerSection(title: "Color") {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 10) {
                             ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
                                 ColorPickerItem(
                                     color: Theme.Colors.categoryColors[index],
@@ -836,13 +1118,10 @@ struct AddAccountView: View {
                                 )
                             }
                         }
-                        .padding(14)
-                        .background(Color(uiColor: .systemBackground))
-                        .cornerRadius(14)
-                        .padding(.horizontal, 16)
                     }
                 }
                 .padding(.top, 8)
+                .padding(.bottom, 32)
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("New Account")
@@ -857,29 +1136,24 @@ struct AddAccountView: View {
                         .fontWeight(.semibold)
                 }
             }
+            .sheet(isPresented: $showingCurrencyPicker) {
+                CurrencyPickerSheet(selectedCurrency: $viewModel.appState.selectedCurrency)
+                    .presentationDetents([.medium, .large])
+            }
+            .onChange(of: viewModel.appState.selectedCurrency) { _, _ in
+                viewModel.saveData()
+            }
         }
-    }
-    
-    private var currencySymbol: String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = viewModel.appState.selectedCurrency
-        return formatter.currencySymbol ?? "$"
     }
     
     private func addAccount() {
         let balance = Double(initialBalance) ?? 0
         let colorHex = Theme.Colors.categoryColors[selectedColorIndex].toHex() ?? "#007AFF"
-        
         let account = Account(
-            name: name,
-            type: selectedType,
-            icon: selectedIcon,
-            color: colorHex,
-            initialBalance: balance,
+            name: name, type: selectedType, icon: selectedIcon,
+            color: colorHex, initialBalance: balance,
             note: note.isEmpty ? nil : note
         )
-        
         viewModel.addAccount(account)
         Haptics.success()
         dismiss()
@@ -898,16 +1172,26 @@ struct AddCategoryView: View {
     @State private var note = ""
     
     private let categoryIcons = [
+        // Food & Dining
         "fork.knife", "cup.and.saucer.fill", "wineglass.fill", "mug.fill", "carrot.fill", "birthday.cake.fill",
+        // Shopping
         "cart.fill", "basket.fill", "bag.fill", "storefront.fill", "shippingbox.fill", "gift.fill",
-        "car.fill", "bus.fill", "tram.fill", "bicycle", "airplane", "fuelpump.fill", "parkingsign.circle.fill",
+        // Transport
+        "car.fill", "bus.fill", "tram.fill", "bicycle", "airplane", "fuelpump.fill",
+        // Entertainment
         "film.fill", "tv.fill", "gamecontroller.fill", "music.note", "ticket.fill", "theatermasks.fill",
+        // Health & Fitness
         "heart.fill", "cross.fill", "pills.fill", "stethoscope", "dumbbell.fill", "figure.run",
-        "house.fill", "bolt.fill", "drop.fill", "flame.fill", "wifi", "washer.fill", "bed.double.fill",
-        "briefcase.fill", "laptopcomputer", "desktopcomputer", "printer.fill", "keyboard.fill",
-        "graduationcap.fill", "book.fill", "pencil", "backpack.fill", "books.vertical.fill",
-        "dollarsign.circle.fill", "chart.line.uptrend.xyaxis", "banknote.fill", "percent",
-        "pawprint.fill", "leaf.fill", "camera.fill", "sparkles", "star.fill", "tag.fill", "lightbulb.fill"
+        // Home & Utilities
+        "house.fill", "bolt.fill", "drop.fill", "flame.fill", "wifi", "washer.fill",
+        // Work
+        "briefcase.fill", "laptopcomputer", "desktopcomputer", "printer.fill", "keyboard.fill", "doc.fill",
+        // Education
+        "graduationcap.fill", "book.fill", "pencil", "backpack.fill", "books.vertical.fill", "brain.fill",
+        // Finance
+        "dollarsign.circle.fill", "chart.line.uptrend.xyaxis", "banknote.fill", "percent", "building.columns.fill", "creditcard.fill",
+        // Other
+        "pawprint.fill", "leaf.fill", "camera.fill", "sparkles", "star.fill", "tag.fill",
     ]
     
     var body: some View {
@@ -918,7 +1202,7 @@ struct AddCategoryView: View {
                     VStack(spacing: 10) {
                         ZStack {
                             Circle()
-                                .fill(Theme.Colors.categoryColors[selectedColorIndex].opacity(0.15))
+                                .fill(Theme.Colors.categoryColors[selectedColorIndex].opacity(0.12))
                                 .frame(width: 56, height: 56)
                             Image(systemName: selectedIcon)
                                 .font(.system(size: 24))
@@ -927,66 +1211,54 @@ struct AddCategoryView: View {
                         Text(name.isEmpty ? "Category Name" : name)
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(name.isEmpty ? Color(uiColor: .tertiaryLabel) : Color(uiColor: .label))
+                        
+                        Text(selectedType.rawValue)
+                            .font(.system(size: 12))
+                            .foregroundColor(Color(uiColor: .secondaryLabel))
                     }
                     .padding(.vertical, 16)
                     
-                    // Details
                     VStack(spacing: 0) {
-                        HStack {
-                            Text("Name")
-                                .font(.system(size: 15))
-                                .foregroundColor(Color(uiColor: .label))
-                            Spacer()
+                        FormRow(label: "Name") {
                             TextField("Category Name", text: $name)
                                 .font(.system(size: 15))
                                 .multilineTextAlignment(.trailing)
                         }
-                        .padding(.horizontal, 16).padding(.vertical, 12)
-                        
-                        Divider().padding(.leading, 16)
-                        
-                        VStack(spacing: 8) {
-                            HStack {
-                                Text("Type")
-                                    .font(.system(size: 15))
-                                    .foregroundColor(Color(uiColor: .label))
-                                Spacer()
-                            }
-                            Picker("Type", selection: $selectedType) {
-                                Text("Expense").tag(CategoryType.expense)
-                                Text("Income").tag(CategoryType.income)
-                            }
-                            .pickerStyle(.segmented)
-                        }
-                        .padding(.horizontal, 16).padding(.vertical, 10)
                         
                         Divider().padding(.leading, 16)
                         
                         HStack {
-                            Text("Note")
+                            Text("Type")
                                 .font(.system(size: 15))
                                 .foregroundColor(Color(uiColor: .label))
                             Spacer()
+                            Picker("Type", selection: $selectedType) {
+                                ForEach(CategoryType.allCases, id: \.self) { type in
+                                    Text(type.rawValue).tag(type)
+                                }
+                            }
+                            .labelsHidden()
+                            .tint(Color(uiColor: .secondaryLabel))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        
+                        Divider().padding(.leading, 16)
+                        
+                        FormRow(label: "Note") {
                             TextField("Optional", text: $note)
                                 .font(.system(size: 15))
                                 .multilineTextAlignment(.trailing)
                                 .foregroundColor(Color(uiColor: .secondaryLabel))
                         }
-                        .padding(.horizontal, 16).padding(.vertical, 12)
                     }
                     .background(Color(uiColor: .systemBackground))
                     .cornerRadius(14)
                     .padding(.horizontal, 16)
                     
                     // Icon
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Icon")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Color(uiColor: .secondaryLabel))
-                            .textCase(.uppercase)
-                            .padding(.horizontal, 20)
-                        
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 10) {
+                    PickerSection(title: "Icon") {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
                             ForEach(categoryIcons, id: \.self) { icon in
                                 IconPickerItem(
                                     icon: icon,
@@ -996,21 +1268,11 @@ struct AddCategoryView: View {
                                 )
                             }
                         }
-                        .padding(12)
-                        .background(Color(uiColor: .systemBackground))
-                        .cornerRadius(14)
-                        .padding(.horizontal, 16)
                     }
                     
                     // Color
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Color")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Color(uiColor: .secondaryLabel))
-                            .textCase(.uppercase)
-                            .padding(.horizontal, 20)
-                        
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 10) {
+                    PickerSection(title: "Color") {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 10) {
                             ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
                                 ColorPickerItem(
                                     color: Theme.Colors.categoryColors[index],
@@ -1019,10 +1281,6 @@ struct AddCategoryView: View {
                                 )
                             }
                         }
-                        .padding(14)
-                        .background(Color(uiColor: .systemBackground))
-                        .cornerRadius(14)
-                        .padding(.horizontal, 16)
                     }
                 }
                 .padding(.top, 8)
@@ -1046,23 +1304,18 @@ struct AddCategoryView: View {
     
     private func addCategory() {
         let colorHex = Theme.Colors.categoryColors[selectedColorIndex].toHex() ?? "#007AFF"
-        
         let category = Category(
-            name: name,
-            icon: selectedIcon,
-            color: colorHex,
-            type: selectedType,
-            sortOrder: viewModel.categories.count,
+            name: name, icon: selectedIcon, color: colorHex,
+            type: selectedType, sortOrder: viewModel.categories.count,
             note: note.isEmpty ? nil : note
         )
-        
         viewModel.addCategory(category)
         Haptics.success()
         dismiss()
     }
 }
 
-// MARK: - Edit Category View (with Note field)
+// MARK: - Edit Category View
 struct EditCategoryView: View {
     @ObservedObject var viewModel: BalanceViewModel
     @Environment(\.dismiss) private var dismiss
@@ -1073,28 +1326,17 @@ struct EditCategoryView: View {
     @State private var selectedColorIndex: Int
     @State private var note: String
     
-    // SF Symbols 7 category icons
     private let categoryIcons = [
-        // Food & Dining
         "fork.knife", "cup.and.saucer.fill", "wineglass.fill", "mug.fill", "carrot.fill", "birthday.cake.fill",
-        // Shopping
         "cart.fill", "basket.fill", "bag.fill", "storefront.fill", "shippingbox.fill", "gift.fill",
-        // Transport
-        "car.fill", "bus.fill", "tram.fill", "bicycle", "airplane", "fuelpump.fill", "parkingsign.circle.fill",
-        // Entertainment
+        "car.fill", "bus.fill", "tram.fill", "bicycle", "airplane", "fuelpump.fill",
         "film.fill", "tv.fill", "gamecontroller.fill", "music.note", "ticket.fill", "theatermasks.fill",
-        // Health
         "heart.fill", "cross.fill", "pills.fill", "stethoscope", "dumbbell.fill", "figure.run",
-        // Home
-        "house.fill", "bolt.fill", "drop.fill", "flame.fill", "wifi", "washer.fill", "bed.double.fill",
-        // Work
-        "briefcase.fill", "laptopcomputer", "desktopcomputer", "printer.fill", "keyboard.fill",
-        // Education
-        "graduationcap.fill", "book.fill", "pencil", "backpack.fill", "books.vertical.fill",
-        // Finance
-        "dollarsign.circle.fill", "chart.line.uptrend.xyaxis", "banknote.fill", "percent",
-        // Other
-        "pawprint.fill", "leaf.fill", "camera.fill", "sparkles", "star.fill", "tag.fill", "lightbulb.fill"
+        "house.fill", "bolt.fill", "drop.fill", "flame.fill", "wifi", "washer.fill",
+        "briefcase.fill", "laptopcomputer", "desktopcomputer", "printer.fill", "keyboard.fill", "doc.fill",
+        "graduationcap.fill", "book.fill", "pencil", "backpack.fill", "books.vertical.fill", "brain.fill",
+        "dollarsign.circle.fill", "chart.line.uptrend.xyaxis", "banknote.fill", "percent", "building.columns.fill", "creditcard.fill",
+        "pawprint.fill", "leaf.fill", "camera.fill", "sparkles", "star.fill", "tag.fill",
     ]
     
     init(viewModel: BalanceViewModel, category: Category) {
@@ -1115,62 +1357,95 @@ struct EditCategoryView: View {
     }
     
     var body: some View {
-        Form {
-            Section("Category Details") {
-                TextField("Category Name", text: $name)
-                
-                TextField("Note (optional)", text: $note)
-                
-                HStack {
-                    Text("Type")
-                    Spacer()
+        ScrollView {
+            VStack(spacing: 16) {
+                // Preview
+                VStack(spacing: 10) {
+                    ZStack {
+                        Circle()
+                            .fill(Theme.Colors.categoryColors[selectedColorIndex].opacity(0.12))
+                            .frame(width: 56, height: 56)
+                        Image(systemName: selectedIcon)
+                            .font(.system(size: 24))
+                            .foregroundColor(Theme.Colors.categoryColors[selectedColorIndex])
+                    }
+                    Text(name.isEmpty ? "Category Name" : name)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(name.isEmpty ? Color(uiColor: .tertiaryLabel) : Color(uiColor: .label))
+                    
                     Text(category.type.rawValue)
-                        .foregroundColor(Theme.Colors.secondaryText)
+                        .font(.system(size: 13))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
                 }
-            }
-            
-            Section("Icon") {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: Theme.Spacing.md) {
-                    ForEach(categoryIcons, id: \.self) { icon in
-                        IconPickerItem(
-                            icon: icon,
-                            color: Theme.Colors.categoryColors[selectedColorIndex],
-                            isSelected: selectedIcon == icon,
-                            action: {
-                                selectedIcon = icon
-                                Haptics.selection()
-                            }
-                        )
+                .padding(.vertical, 16)
+                
+                // Details
+                VStack(spacing: 0) {
+                    FormRow(label: "Name") {
+                        TextField("Category Name", text: $name)
+                            .font(.system(size: 15))
+                            .multilineTextAlignment(.trailing)
+                    }
+                    
+                    Divider().padding(.leading, 16)
+                    
+                    FormRow(label: "Note") {
+                        TextField("Optional", text: $note)
+                            .font(.system(size: 15))
+                            .multilineTextAlignment(.trailing)
+                            .foregroundColor(Color(uiColor: .secondaryLabel))
                     }
                 }
-                .padding(.vertical, Theme.Spacing.xs)
-            }
-            
-            Section("Color") {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: Theme.Spacing.sm) {
-                    ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
-                        ColorPickerItem(
-                            color: Theme.Colors.categoryColors[index],
-                            isSelected: selectedColorIndex == index,
-                            action: {
-                                selectedColorIndex = index
-                                Haptics.selection()
-                            }
-                        )
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(14)
+                .padding(.horizontal, 16)
+                
+                // Icon
+                PickerSection(title: "Icon") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
+                        ForEach(categoryIcons, id: \.self) { icon in
+                            IconPickerItem(
+                                icon: icon,
+                                color: Theme.Colors.categoryColors[selectedColorIndex],
+                                isSelected: selectedIcon == icon,
+                                action: { selectedIcon = icon; Haptics.selection() }
+                            )
+                        }
                     }
                 }
-                .padding(.vertical, Theme.Spacing.xs)
-            }
-            
-            if !category.isSystem {
-                Section {
-                    Button("Delete Category", role: .destructive) {
+                
+                // Color
+                PickerSection(title: "Color") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 10) {
+                        ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
+                            ColorPickerItem(
+                                color: Theme.Colors.categoryColors[index],
+                                isSelected: selectedColorIndex == index,
+                                action: { selectedColorIndex = index; Haptics.selection() }
+                            )
+                        }
+                    }
+                }
+                
+                if !category.isSystem {
+                    Button(role: .destructive, action: {
                         viewModel.deleteCategory(category)
                         dismiss()
+                    }) {
+                        Text("Delete Category")
+                            .font(.system(size: 15, weight: .medium))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color(uiColor: .systemBackground))
+                            .cornerRadius(14)
                     }
+                    .padding(.horizontal, 16)
                 }
             }
+            .padding(.top, 8)
+            .padding(.bottom, 32)
         }
+        .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("Edit Category")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -1183,123 +1458,18 @@ struct EditCategoryView: View {
     
     private func saveChanges() {
         let colorHex = Theme.Colors.categoryColors[selectedColorIndex].toHex() ?? category.color
-        
         var updated = category
         updated.name = name
         updated.icon = selectedIcon
         updated.color = colorHex
         updated.note = note.isEmpty ? nil : note
-        
         viewModel.updateCategory(updated)
         Haptics.success()
         dismiss()
     }
 }
 
-// MARK: - Account Detail View
-struct AccountDetailView: View {
-    @ObservedObject var viewModel: BalanceViewModel
-    let account: Account
-    
-    private var balance: Double {
-        viewModel.balanceForAccount(account)
-    }
-    
-    private var balanceColor: Color {
-        if balance == 0 {
-            return Theme.Colors.primaryText
-        } else if balance > 0 {
-            return Theme.Colors.income
-        } else {
-            return Theme.Colors.expense
-        }
-    }
-    
-    var body: some View {
-        List {
-            Section {
-                HStack {
-                    Spacer()
-                    VStack(spacing: Theme.Spacing.xs) {
-                        ZStack {
-                            Circle()
-                                .fill(account.colorValue.opacity(0.15))
-                                .frame(width: 60, height: 60)
-                            
-                            Image(systemName: account.icon)
-                                .font(.title)
-                                .foregroundColor(account.colorValue)
-                        }
-                        
-                        Text(account.name)
-                            .font(Theme.Typography.title2)
-                        
-                        if let note = account.note, !note.isEmpty {
-                            Text(note)
-                                .font(Theme.Typography.caption)
-                                .foregroundColor(Theme.Colors.secondaryText)
-                        }
-                        
-                        Text(formatCurrency(balance, currency: viewModel.appState.selectedCurrency))
-                            .font(Theme.Typography.balanceAmount)
-                            .foregroundColor(balanceColor)
-                    }
-                    Spacer()
-                }
-                .listRowBackground(Color.clear)
-            }
-            
-            Section("Recent Transactions") {
-                let transactions = viewModel.transactionsForAccount(account).prefix(10)
-                if transactions.isEmpty {
-                    Text("No transactions yet")
-                        .foregroundColor(Theme.Colors.secondaryText)
-                } else {
-                    ForEach(Array(transactions)) { transaction in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(transaction.title.isEmpty ? (viewModel.getCategory(by: transaction.categoryId)?.name ?? transaction.type.rawValue) : transaction.title)
-                                    .font(Theme.Typography.body)
-                                Text(formatDate(transaction.date))
-                                    .font(Theme.Typography.caption)
-                                    .foregroundColor(Theme.Colors.secondaryText)
-                            }
-                            Spacer()
-                            Text(formatSignedAmount(transaction))
-                                .font(Theme.Typography.subheadline)
-                                .foregroundColor(transaction.type == .expense ? Theme.Colors.expense : Theme.Colors.income)
-                        }
-                    }
-                }
-            }
-        }
-        .navigationTitle(account.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                NavigationLink(destination: EditAccountView(viewModel: viewModel, account: account)) {
-                    Text("Edit")
-                }
-            }
-        }
-    }
-    
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter.string(from: date)
-    }
-    
-    private func formatSignedAmount(_ transaction: Transaction) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = viewModel.appState.selectedCurrency
-        let formatted = formatter.string(from: NSNumber(value: transaction.amount)) ?? "$0.00"
-        return transaction.type == .expense ? "-\(formatted)" : "+\(formatted)"
-    }
-}
-
-// MARK: - Edit Account View (with Note field, fixed color picker)
+// MARK: - Edit Account View
 struct EditAccountView: View {
     @ObservedObject var viewModel: BalanceViewModel
     @Environment(\.dismiss) private var dismiss
@@ -1311,16 +1481,14 @@ struct EditAccountView: View {
     @State private var selectedColorIndex: Int
     @State private var note: String
     
-    // SF Symbols 7 account icons
     private let accountIcons = [
-        "building.columns.fill", "banknote.fill", "creditcard.fill", "wallet.bifold.fill",
-        "chart.line.uptrend.xyaxis", "wallet.pass.fill", "creditcard.and.123",
-        "briefcase.fill", "bag.fill", "cart.fill", "safe.fill", "dollarsign.bank.building.fill",
-        "bitcoinsign.circle.fill", "eurosign.circle.fill", "yensign.circle.fill",
-        "sterlingsign.circle.fill", "pesosign.circle.fill", "rublesign.circle.fill",
-        "indianrupeesign.circle.fill", "turkishlirasign.circle.fill", "francsign.circle.fill",
-        "dollarsign.arrow.circlepath", "arrow.trianglehead.2.counterclockwise.rotate.90.circle.fill",
-        "chart.bar.fill", "percent", "banknote", "creditcard.viewfinder"
+        "building.columns.fill", "banknote.fill", "creditcard.fill", "wallet.pass.fill",
+        "dollarsign.circle.fill", "safe.fill", "briefcase.fill", "bag.fill",
+        "chart.line.uptrend.xyaxis", "chart.bar.fill", "iphone.gen3", "globe",
+        "bitcoinsign.circle.fill", "eurosign.circle.fill", "sterlingsign.circle.fill",
+        "yensign.circle.fill", "pesosign.circle.fill", "indianrupeesign.circle.fill",
+        "coloncurrencysign.circle.fill", "francsign.circle.fill",
+        "house.fill", "car.fill", "star.fill", "heart.fill",
     ]
     
     init(viewModel: BalanceViewModel, account: Account) {
@@ -1342,61 +1510,112 @@ struct EditAccountView: View {
     }
     
     var body: some View {
-        Form {
-            Section("Account Details") {
-                TextField("Account Name", text: $name)
+        ScrollView {
+            VStack(spacing: 16) {
+                // Preview
+                VStack(spacing: 10) {
+                    ZStack {
+                        Circle()
+                            .fill(Theme.Colors.categoryColors[selectedColorIndex].opacity(0.12))
+                            .frame(width: 56, height: 56)
+                        Image(systemName: selectedIcon)
+                            .font(.system(size: 24))
+                            .foregroundColor(Theme.Colors.categoryColors[selectedColorIndex])
+                    }
+                    Text(name.isEmpty ? "Account Name" : name)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(name.isEmpty ? Color(uiColor: .tertiaryLabel) : Color(uiColor: .label))
+                    
+                    Text(selectedType.rawValue)
+                        .font(.system(size: 13))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                }
+                .padding(.vertical, 16)
                 
-                Picker("Type", selection: $selectedType) {
-                    ForEach(AccountType.allCases, id: \.self) { type in
-                        Text(type.rawValue).tag(type)
+                // Details
+                VStack(spacing: 0) {
+                    FormRow(label: "Name") {
+                        TextField("Account Name", text: $name)
+                            .font(.system(size: 15))
+                            .multilineTextAlignment(.trailing)
+                    }
+                    
+                    Divider().padding(.leading, 16)
+                    
+                    HStack {
+                        Text("Type")
+                            .font(.system(size: 15))
+                            .foregroundColor(Color(uiColor: .label))
+                        Spacer()
+                        Picker("Type", selection: $selectedType) {
+                            ForEach(AccountType.allCases, id: \.self) { type in
+                                Text(type.rawValue).tag(type)
+                            }
+                        }
+                        .labelsHidden()
+                        .tint(Color(uiColor: .secondaryLabel))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    
+                    Divider().padding(.leading, 16)
+                    
+                    FormRow(label: "Note") {
+                        TextField("Optional", text: $note)
+                            .font(.system(size: 15))
+                            .multilineTextAlignment(.trailing)
+                            .foregroundColor(Color(uiColor: .secondaryLabel))
+                    }
+                }
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(14)
+                .padding(.horizontal, 16)
+                
+                PickerSection(title: "Icon") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
+                        ForEach(accountIcons, id: \.self) { icon in
+                            IconPickerItem(
+                                icon: icon,
+                                color: Theme.Colors.categoryColors[selectedColorIndex],
+                                isSelected: selectedIcon == icon,
+                                action: { selectedIcon = icon; Haptics.selection() }
+                            )
+                        }
                     }
                 }
                 
-                TextField("Note (optional)", text: $note)
-            }
-            
-            Section("Icon") {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: Theme.Spacing.md) {
-                    ForEach(accountIcons, id: \.self) { icon in
-                        IconPickerItem(
-                            icon: icon,
-                            color: Theme.Colors.categoryColors[selectedColorIndex],
-                            isSelected: selectedIcon == icon,
-                            action: {
-                                selectedIcon = icon
-                                Haptics.selection()
-                            }
-                        )
+                // Color
+                PickerSection(title: "Color") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 10) {
+                        ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
+                            ColorPickerItem(
+                                color: Theme.Colors.categoryColors[index],
+                                isSelected: selectedColorIndex == index,
+                                action: { selectedColorIndex = index; Haptics.selection() }
+                            )
+                        }
                     }
                 }
-                .padding(.vertical, Theme.Spacing.xs)
-            }
-            
-            Section("Color") {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: Theme.Spacing.sm) {
-                    ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
-                        ColorPickerItem(
-                            color: Theme.Colors.categoryColors[index],
-                            isSelected: selectedColorIndex == index,
-                            action: {
-                                selectedColorIndex = index
-                                Haptics.selection()
-                            }
-                        )
-                    }
-                }
-                .padding(.vertical, Theme.Spacing.xs)
-            }
-            
-            if viewModel.accounts.count > 1 {
-                Section {
-                    Button("Delete Account", role: .destructive) {
+                
+                if viewModel.accounts.count > 1 {
+                    Button(role: .destructive, action: {
                         viewModel.deleteAccount(account)
                         dismiss()
+                    }) {
+                        Text("Delete Account")
+                            .font(.system(size: 15, weight: .medium))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color(uiColor: .systemBackground))
+                            .cornerRadius(14)
                     }
+                    .padding(.horizontal, 16)
                 }
             }
+            .padding(.top, 8)
+            .padding(.bottom, 32)
         }
+        .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("Edit Account")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -1409,21 +1628,57 @@ struct EditAccountView: View {
     
     private func saveChanges() {
         let colorHex = Theme.Colors.categoryColors[selectedColorIndex].toHex() ?? account.color
-        
         var updated = account
         updated.name = name
         updated.type = selectedType
         updated.icon = selectedIcon
         updated.color = colorHex
         updated.note = note.isEmpty ? nil : note
-        
         viewModel.updateAccount(updated)
         Haptics.success()
         dismiss()
     }
 }
 
-// MARK: - Icon Picker Item
+// MARK: - Reusable Components
+
+private struct FormRow<Content: View>: View {
+    let label: String
+    @ViewBuilder let content: Content
+    
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 15))
+                .foregroundColor(Color(uiColor: .label))
+            Spacer()
+            content
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+}
+
+private struct PickerSection<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title.uppercased())
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(Color(uiColor: .secondaryLabel))
+                .padding(.horizontal, 20)
+            
+            content
+                .padding(12)
+                .background(Color(uiColor: .systemBackground))
+                .cornerRadius(14)
+                .padding(.horizontal, 16)
+        }
+    }
+}
+
 struct IconPickerItem: View {
     let icon: String
     let color: Color
@@ -1434,18 +1689,17 @@ struct IconPickerItem: View {
         Button(action: action) {
             ZStack {
                 Circle()
-                    .fill(isSelected ? color : color.opacity(0.15))
-                    .frame(width: 44, height: 44)
+                    .fill(isSelected ? color : color.opacity(0.12))
+                    .frame(width: 42, height: 42)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 18))
+                    .font(.system(size: 17))
                     .foregroundColor(isSelected ? .white : color)
             }
         }
     }
 }
 
-// MARK: - Color Picker Item
 struct ColorPickerItem: View {
     let color: Color
     let isSelected: Bool
@@ -1455,18 +1709,73 @@ struct ColorPickerItem: View {
         Button(action: action) {
             Circle()
                 .fill(color)
-                .frame(width: 44, height: 44)
+                .frame(width: 36, height: 36)
                 .overlay(
                     Circle()
-                        .stroke(isSelected ? Theme.Colors.primaryText : Color.clear, lineWidth: 3)
+                        .stroke(Color(uiColor: .label), lineWidth: isSelected ? 2.5 : 0)
+                        .padding(isSelected ? -3 : 0)
                 )
                 .overlay(
                     Image(systemName: "checkmark")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 13, weight: .bold))
                         .foregroundColor(.white)
                         .opacity(isSelected ? 1 : 0)
                 )
         }
+    }
+}
+
+// MARK: - Empty State View (legacy compatibility)
+struct EmptyStateView: View {
+    let icon: String
+    let title: String
+    let message: String
+    
+    var body: some View {
+        WalletEmptyState(icon: icon, title: title, message: message)
+    }
+}
+
+// MARK: - Metric Row (legacy compatibility)
+struct MetricRow: View {
+    let icon: String
+    let title: String
+    let value: String
+    let color: Color
+    
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+                .foregroundColor(color)
+                .frame(width: 24)
+            Text(title)
+                .foregroundColor(Color(uiColor: .label))
+            Spacer()
+            Text(value)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(color)
+        }
+    }
+}
+
+// MARK: - Total Balance Card (legacy compatibility)
+struct TotalBalanceCard: View {
+    let balance: Double
+    let currency: String
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            Text("Total Balance")
+                .font(.system(size: 14))
+                .foregroundColor(Color(uiColor: .secondaryLabel))
+            Text(formatCurrency(balance, currency: currency))
+                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .foregroundColor(Color(uiColor: .label))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(20)
+        .background(Color(uiColor: .systemBackground))
+        .cornerRadius(16)
     }
 }
 
@@ -1478,5 +1787,11 @@ extension Color {
         let g = Int(components[1] * 255)
         let b = Int(components[2] * 255)
         return String(format: "#%02X%02X%02X", r, g, b)
+    }
+}
+
+#Preview {
+    NavigationStack {
+        WalletView(viewModel: BalanceViewModel())
     }
 }

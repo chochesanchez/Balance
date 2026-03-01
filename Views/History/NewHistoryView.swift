@@ -11,7 +11,6 @@ struct NewHistoryView: View {
     @State private var showingSearch = false
     @State private var showingFiltersSheet = false
     @State private var selectedDate: Date? = nil
-    @State private var secondDate: Date? = nil
     @State private var selectedTransaction: Transaction?
     @State private var showingTransactionDetail = false
     
@@ -44,16 +43,9 @@ struct NewHistoryView: View {
         
         // Filter by date
         if let first = selectedDate {
-            if let second = secondDate {
-                let startDate = min(first, second)
-                let endDate = max(first, second)
-                let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: endDate) ?? endDate
-                transactions = transactions.filter { $0.date >= startDate && $0.date < endOfDay }
-            } else {
-                let startOfDay = Calendar.current.startOfDay(for: first)
-                let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) ?? first
-                transactions = transactions.filter { $0.date >= startOfDay && $0.date < endOfDay }
-            }
+            let startOfDay = Calendar.current.startOfDay(for: first)
+            let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) ?? first
+            transactions = transactions.filter { $0.date >= startOfDay && $0.date < endOfDay }
         }
         
         // Filter by categories
@@ -97,11 +89,7 @@ struct NewHistoryView: View {
             if selectedDate != nil {
                 DateFilterBadge(
                     selectedDate: selectedDate,
-                    secondDate: secondDate,
-                    onClear: {
-                        selectedDate = nil
-                        secondDate = nil
-                    }
+                    onClear: { selectedDate = nil }
                 )
                 .padding(.horizontal, Theme.Spacing.md)
                 .padding(.vertical, Theme.Spacing.xs)
@@ -140,7 +128,7 @@ struct NewHistoryView: View {
                         title: "Transfer",
                         icon: "arrow.left.arrow.right.circle.fill",
                         isSelected: selectedFilters.contains(.transfer),
-                        selectedColor: Color.orange,
+                        selectedColor: Theme.Colors.transfer,
                         action: { toggleFilter(.transfer) }
                     )
                     
@@ -148,7 +136,7 @@ struct NewHistoryView: View {
                         title: "Recurring",
                         icon: "repeat.circle.fill",
                         isSelected: showRecurringOnly,
-                        selectedColor: Color.purple,
+                        selectedColor: Theme.Colors.recurring,
                         action: {
                             showRecurringOnly.toggle()
                             Haptics.selection()
@@ -235,7 +223,6 @@ struct NewHistoryView: View {
         .sheet(isPresented: $showingDatePicker) {
             ImprovedDatePickerSheet(
                 selectedDate: $selectedDate,
-                secondDate: $secondDate,
                 isPresented: $showingDatePicker
             )
         }
@@ -299,36 +286,37 @@ struct SearchBar: View {
 // MARK: - Date Filter Badge
 struct DateFilterBadge: View {
     let selectedDate: Date?
-    let secondDate: Date?
     let onClear: () -> Void
     
     private var dateText: String {
-        guard let first = selectedDate else { return "" }
+        guard let date = selectedDate else { return "" }
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
-        
-        if let second = secondDate {
-            return "\(formatter.string(from: min(first, second))) - \(formatter.string(from: max(first, second)))"
-        }
-        return formatter.string(from: first)
+        return formatter.string(from: date)
     }
     
     var body: some View {
-        HStack {
+        HStack(spacing: 8) {
             Image(systemName: "calendar")
+                .font(.system(size: 14))
                 .foregroundColor(Theme.Colors.primary)
             
             Text(dateText)
-                .font(Theme.Typography.subheadline)
+                .font(.system(size: 14, weight: .medium))
                 .foregroundColor(Theme.Colors.primary)
             
             Spacer()
             
             Button(action: onClear) {
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(Theme.Colors.secondaryText)
+                    .font(.system(size: 16))
+                    .foregroundColor(Color(uiColor: .tertiaryLabel))
             }
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Theme.Colors.primary.opacity(0.08))
+        .cornerRadius(10)
     }
 }
 
@@ -380,13 +368,14 @@ struct HistoryTransactionRow: View {
                     
                     HStack(spacing: 4) {
                         Text(account?.name ?? "")
+                            .foregroundColor(Color(uiColor: .secondaryLabel))
                         if transaction.recurringId != nil {
                             Image(systemName: "repeat")
                                 .font(.system(size: 10))
+                                .foregroundColor(Theme.Colors.recurring)
                         }
                     }
                     .font(.system(size: 12))
-                    .foregroundColor(Color(uiColor: .secondaryLabel))
                 }
                 
                 Spacer()
@@ -420,12 +409,13 @@ struct HistoryTransactionRow: View {
     }
 }
 
-// MARK: - Transaction Detail View (full edit support)
+// MARK: - Transaction Detail View
 struct TransactionDetailView: View {
     @ObservedObject var viewModel: BalanceViewModel
     let transaction: Transaction
     @Binding var isPresented: Bool
     @State private var isEditing = false
+    @State private var showDeleteConfirm = false
     
     @State private var editedTitle: String = ""
     @State private var editedNote: String = ""
@@ -433,19 +423,20 @@ struct TransactionDetailView: View {
     @State private var editedDate: Date = Date()
     @State private var editedType: TransactionType = .expense
     @State private var editedAccountId: UUID?
+    @State private var editedToAccountId: UUID?
     @State private var editedCategoryId: UUID?
     
     private var account: Account? {
-        isEditing ? viewModel.getAccount(by: editedAccountId ?? transaction.accountId) : viewModel.getAccount(by: transaction.accountId)
+        viewModel.getAccount(by: isEditing ? (editedAccountId ?? transaction.accountId) : transaction.accountId)
     }
-    
+    private var toAccount: Account? {
+        guard let id = isEditing ? editedToAccountId : transaction.toAccountId else { return nil }
+        return viewModel.getAccount(by: id)
+    }
     private var category: Category? {
-        isEditing ? viewModel.getCategory(by: editedCategoryId) : viewModel.getCategory(by: transaction.categoryId)
+        viewModel.getCategory(by: isEditing ? editedCategoryId : transaction.categoryId)
     }
-    
-    private var displayType: TransactionType {
-        isEditing ? editedType : transaction.type
-    }
+    private var displayType: TransactionType { isEditing ? editedType : transaction.type }
     
     private var typeColor: Color {
         switch displayType {
@@ -461,163 +452,21 @@ struct TransactionDetailView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
-                    // Header
-                    VStack(spacing: 10) {
-                        TransactionIconBadge(category: category, account: account, size: 64)
-                        
-                        if isEditing {
-                            TextField("0", text: $editedAmount)
-                                .font(.system(size: 34, weight: .bold, design: .rounded))
-                                .keyboardType(.decimalPad)
-                                .multilineTextAlignment(.center)
-                                .foregroundColor(typeColor)
-                        } else {
-                            Text(formatSignedAmount)
-                                .font(.system(size: 34, weight: .bold, design: .rounded))
-                                .foregroundColor(typeColor)
-                        }
-                        
-                        Text(displayType.rawValue)
-                            .font(.system(size: 14))
-                            .foregroundColor(Color(uiColor: .secondaryLabel))
-                    }
-                    .padding(.top, 16)
+                    headerSection
                     
                     if isEditing {
-                        // Type selector
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("TYPE")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(Color(uiColor: .secondaryLabel))
-                                .padding(.horizontal, 20)
-                            
-                            HStack(spacing: 8) {
-                                ForEach(TransactionType.allCases, id: \.self) { type in
-                                    let color: Color = type == .income ? Theme.Colors.income : type == .expense ? Theme.Colors.expense : Theme.Colors.transfer
-                                    Button(action: {
-                                        withAnimation(.easeInOut(duration: 0.2)) { editedType = type }
-                                        editedCategoryId = nil
-                                        Haptics.selection()
-                                    }) {
-                                        Text(type.rawValue)
-                                            .font(.system(size: 14, weight: .medium))
-                                            .frame(maxWidth: .infinity)
-                                            .padding(.vertical, 10)
-                                            .background(editedType == type ? color : Color(uiColor: .tertiarySystemFill))
-                                            .foregroundColor(editedType == type ? .white : Color(uiColor: .label))
-                                            .cornerRadius(10)
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                        }
-                        
-                        // Details card
-                        VStack(spacing: 0) {
-                            DetailEditRow(label: "Title", text: $editedTitle)
-                            Divider().padding(.leading, 16)
-                            DetailEditRow(label: "Note", text: $editedNote)
-                            Divider().padding(.leading, 16)
-                            DatePicker("Date", selection: $editedDate, displayedComponents: [.date, .hourAndMinute])
-                                .font(.system(size: 15))
-                                .padding(.horizontal, 16).padding(.vertical, 10)
-                        }
-                        .background(Color(uiColor: .systemBackground))
-                        .cornerRadius(14)
-                        .padding(.horizontal, 16)
-                        
-                        // Account picker
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("ACCOUNT")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(Color(uiColor: .secondaryLabel))
-                                .padding(.horizontal, 20)
-                            
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(viewModel.accounts) { acc in
-                                        Button(action: {
-                                            editedAccountId = acc.id
-                                            Haptics.selection()
-                                        }) {
-                                            HStack(spacing: 6) {
-                                                Image(systemName: acc.icon)
-                                                    .font(.system(size: 12))
-                                                    .foregroundColor(editedAccountId == acc.id ? .white : acc.colorValue)
-                                                Text(acc.name)
-                                                    .font(.system(size: 13, weight: .medium))
-                                            }
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 8)
-                                            .background(editedAccountId == acc.id ? Theme.Colors.primary : Color(uiColor: .tertiarySystemFill))
-                                            .foregroundColor(editedAccountId == acc.id ? .white : Color(uiColor: .label))
-                                            .cornerRadius(20)
-                                        }
-                                    }
-                                }
-                                .padding(.horizontal, 16)
-                            }
-                        }
-                        
-                        // Category picker
-                        if editedType != .transfer {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("CATEGORY")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(Color(uiColor: .secondaryLabel))
-                                    .padding(.horizontal, 20)
-                                
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 8) {
-                                        ForEach(availableCategories) { cat in
-                                            Button(action: {
-                                                editedCategoryId = cat.id
-                                                Haptics.selection()
-                                            }) {
-                                                HStack(spacing: 6) {
-                                                    Image(systemName: cat.icon)
-                                                        .font(.system(size: 12))
-                                                        .foregroundColor(editedCategoryId == cat.id ? .white : cat.colorValue)
-                                                    Text(cat.name)
-                                                        .font(.system(size: 13, weight: .medium))
-                                                }
-                                                .padding(.horizontal, 12)
-                                                .padding(.vertical, 8)
-                                                .background(editedCategoryId == cat.id ? cat.colorValue : Color(uiColor: .tertiarySystemFill))
-                                                .foregroundColor(editedCategoryId == cat.id ? .white : Color(uiColor: .label))
-                                                .cornerRadius(20)
-                                            }
-                                        }
-                                    }
-                                    .padding(.horizontal, 16)
-                                }
-                            }
-                        }
+                        editContent
                     } else {
-                        // View mode
-                        VStack(spacing: 0) {
-                            DetailRow(label: "Title", value: transaction.title.isEmpty ? "-" : transaction.title)
-                            Divider().padding(.leading, 16)
-                            DetailRow(label: "Category", value: category?.name ?? "-", icon: category?.icon, iconColor: category?.colorValue)
-                            Divider().padding(.leading, 16)
-                            DetailRow(label: "Account", value: account?.name ?? "-", icon: account?.icon, iconColor: account?.colorValue)
-                            Divider().padding(.leading, 16)
-                            DetailRow(label: "Date", value: formatFullDate(transaction.date))
-                            
-                            if !transaction.note.isEmpty {
-                                Divider().padding(.leading, 16)
-                                DetailRow(label: "Note", value: transaction.note)
-                            }
-                        }
-                        .background(Color(uiColor: .systemBackground))
-                        .cornerRadius(14)
-                        .padding(.horizontal, 16)
+                        viewContent
                     }
                     
-                    Spacer(minLength: 40)
+                    if !isEditing {
+                        deleteButton
+                    }
                 }
+                .padding(.bottom, 32)
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle(isEditing ? "Edit" : "Details")
@@ -625,7 +474,11 @@ struct TransactionDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(isEditing ? "Cancel" : "Close") {
-                        if isEditing { isEditing = false } else { isPresented = false }
+                        if isEditing {
+                            withAnimation(.snappy) { isEditing = false }
+                        } else {
+                            isPresented = false
+                        }
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -635,9 +488,268 @@ struct TransactionDetailView: View {
                     .fontWeight(.semibold)
                 }
             }
+            .alert("Delete Transaction", isPresented: $showDeleteConfirm) {
+                Button("Delete", role: .destructive) {
+                    viewModel.deleteTransaction(transaction)
+                    Haptics.medium()
+                    isPresented = false
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This action cannot be undone.")
+            }
         }
     }
     
+    // MARK: - Header
+    private var headerSection: some View {
+        VStack(spacing: 8) {
+            TransactionIconBadge(category: category, account: account, size: 64)
+            
+            if isEditing {
+                TextField("0", text: $editedAmount)
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(Color(uiColor: .label))
+            } else {
+                Text(formatSignedAmount)
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .foregroundColor(typeColor)
+            }
+            
+            Text(displayType.rawValue)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(typeColor.opacity(0.8))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(typeColor.opacity(0.1))
+                .cornerRadius(6)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 20)
+        .padding(.bottom, 4)
+    }
+    
+    // MARK: - View Mode
+    private var viewContent: some View {
+        VStack(spacing: 0) {
+            DetailRow(label: "Title", value: transaction.title.isEmpty ? "-" : transaction.title)
+            Divider().padding(.leading, 16)
+            DetailRow(label: "Category", value: category?.name ?? "-", icon: category?.icon, iconColor: category?.colorValue)
+            Divider().padding(.leading, 16)
+            DetailRow(label: "Account", value: account?.name ?? "-", icon: account?.icon, iconColor: account?.colorValue)
+            if transaction.type == .transfer, let to = toAccount {
+                Divider().padding(.leading, 16)
+                DetailRow(label: "To Account", value: to.name, icon: to.icon, iconColor: to.colorValue)
+            }
+            Divider().padding(.leading, 16)
+            DetailRow(label: "Date", value: formatFullDate(transaction.date))
+            if !transaction.note.isEmpty {
+                Divider().padding(.leading, 16)
+                DetailRow(label: "Note", value: transaction.note)
+            }
+            if transaction.recurringId != nil {
+                Divider().padding(.leading, 16)
+                HStack {
+                    Text("Recurring")
+                        .font(.system(size: 15))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Image(systemName: "repeat")
+                            .font(.system(size: 12))
+                        Text("Yes")
+                            .font(.system(size: 15))
+                    }
+                    .foregroundColor(Theme.Colors.recurring)
+                }
+                .padding(Theme.Spacing.md)
+            }
+        }
+        .background(Color(uiColor: .systemBackground))
+        .cornerRadius(14)
+        .padding(.horizontal, 16)
+    }
+    
+    // MARK: - Edit Mode
+    private var editContent: some View {
+        VStack(spacing: 14) {
+            // Type selector
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Type")
+                        .font(.system(size: 15))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
+                
+                HStack(spacing: 8) {
+                    ForEach(TransactionType.allCases, id: \.self) { type in
+                        let color: Color = type == .income ? Theme.Colors.income : type == .expense ? Theme.Colors.expense : Theme.Colors.transfer
+                        Button(action: {
+                            withAnimation(.snappy) { editedType = type }
+                            if type == .transfer { editedCategoryId = nil }
+                            Haptics.selection()
+                        }) {
+                            Text(type.rawValue)
+                                .font(.system(size: 14, weight: .medium))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(editedType == type ? color : Color(uiColor: .tertiarySystemFill))
+                                .foregroundColor(editedType == type ? .white : Color(uiColor: .label))
+                                .cornerRadius(10)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 14)
+            }
+            .background(Color(uiColor: .systemBackground))
+            .cornerRadius(14)
+            .padding(.horizontal, 16)
+            
+            // Details card
+            VStack(spacing: 0) {
+                DetailEditRow(label: "Title", text: $editedTitle)
+                Divider().padding(.leading, 16)
+                DetailEditRow(label: "Note", text: $editedNote)
+                Divider().padding(.leading, 16)
+                DatePicker("Date", selection: $editedDate, displayedComponents: [.date, .hourAndMinute])
+                    .font(.system(size: 15))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+            }
+            .background(Color(uiColor: .systemBackground))
+            .cornerRadius(14)
+            .padding(.horizontal, 16)
+            
+            // Account picker
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Account")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Color(uiColor: .secondaryLabel))
+                    .padding(.horizontal, 20)
+                
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(viewModel.accounts) { acc in
+                            Button(action: {
+                                editedAccountId = acc.id
+                                Haptics.selection()
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: acc.icon)
+                                        .font(.system(size: 12))
+                                        .foregroundColor(editedAccountId == acc.id ? .white : acc.colorValue)
+                                    Text(acc.name)
+                                        .font(.system(size: 13, weight: .medium))
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(editedAccountId == acc.id ? Theme.Colors.primary : Color(uiColor: .tertiarySystemFill))
+                                .foregroundColor(editedAccountId == acc.id ? .white : Color(uiColor: .label))
+                                .cornerRadius(20)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                
+                if editedType == .transfer {
+                    Text("To Account")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                        .padding(.horizontal, 20)
+                        .padding(.top, 4)
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(viewModel.accounts.filter { $0.id != editedAccountId }) { acc in
+                                Button(action: {
+                                    editedToAccountId = acc.id
+                                    Haptics.selection()
+                                }) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: acc.icon)
+                                            .font(.system(size: 12))
+                                            .foregroundColor(editedToAccountId == acc.id ? .white : acc.colorValue)
+                                        Text(acc.name)
+                                            .font(.system(size: 13, weight: .medium))
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(editedToAccountId == acc.id ? Theme.Colors.transfer : Color(uiColor: .tertiarySystemFill))
+                                    .foregroundColor(editedToAccountId == acc.id ? .white : Color(uiColor: .label))
+                                    .cornerRadius(20)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                }
+            }
+            
+            // Category picker
+            if editedType != .transfer {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Category")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                        .padding(.horizontal, 20)
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(availableCategories) { cat in
+                                Button(action: {
+                                    editedCategoryId = cat.id
+                                    Haptics.selection()
+                                }) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: cat.icon)
+                                            .font(.system(size: 12))
+                                            .foregroundColor(editedCategoryId == cat.id ? .white : cat.colorValue)
+                                        Text(cat.name)
+                                            .font(.system(size: 13, weight: .medium))
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(editedCategoryId == cat.id ? cat.colorValue : Color(uiColor: .tertiarySystemFill))
+                                    .foregroundColor(editedCategoryId == cat.id ? .white : Color(uiColor: .label))
+                                    .cornerRadius(20)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Delete Button
+    private var deleteButton: some View {
+        Button(action: { showDeleteConfirm = true }) {
+            HStack(spacing: 6) {
+                Image(systemName: "trash")
+                    .font(.system(size: 14))
+                Text("Delete Transaction")
+                    .font(.system(size: 15, weight: .medium))
+            }
+            .foregroundColor(Theme.Colors.expense)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(Theme.Colors.expense.opacity(0.08))
+            .cornerRadius(14)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+    }
+    
+    // MARK: - Helpers
     private var formatSignedAmount: String {
         let prefix = transaction.type == .income ? "+" : transaction.type == .expense ? "-" : ""
         return "\(prefix)\(formatCurrency(transaction.amount, currency: viewModel.appState.selectedCurrency))"
@@ -650,8 +762,9 @@ struct TransactionDetailView: View {
         editedDate = transaction.date
         editedType = transaction.type
         editedAccountId = transaction.accountId
+        editedToAccountId = transaction.toAccountId
         editedCategoryId = transaction.categoryId
-        isEditing = true
+        withAnimation(.snappy) { isEditing = true }
     }
     
     private func saveChanges() {
@@ -660,17 +773,19 @@ struct TransactionDetailView: View {
         updated.note = editedNote
         updated.type = editedType
         updated.accountId = editedAccountId ?? transaction.accountId
+        updated.toAccountId = editedType == .transfer ? editedToAccountId : nil
         updated.categoryId = editedType == .transfer ? nil : editedCategoryId
         if let amount = Double(editedAmount) { updated.amount = amount }
         updated.date = editedDate
         viewModel.updateTransaction(updated)
-        isEditing = false
+        withAnimation(.snappy) { isEditing = false }
         Haptics.success()
     }
     
     private func formatFullDate(_ date: Date) -> String {
         let df = DateFormatter()
         df.dateStyle = .full
+        df.timeStyle = .short
         return df.string(from: date)
     }
 }
@@ -786,10 +901,9 @@ struct StatBox: View {
     }
 }
 
-// MARK: - Improved Date Picker Sheet
+// MARK: - Date Picker Sheet
 struct ImprovedDatePickerSheet: View {
     @Binding var selectedDate: Date?
-    @Binding var secondDate: Date?
     @Binding var isPresented: Bool
     
     @State private var pickerDate: Date = Date()
@@ -802,7 +916,6 @@ struct ImprovedDatePickerSheet: View {
                     .tint(Theme.Colors.primary)
                     .padding(.horizontal, 16)
                 
-                // Quick select
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Quick Select")
                         .font(.system(size: 13, weight: .medium))
@@ -823,11 +936,9 @@ struct ImprovedDatePickerSheet: View {
                 
                 Spacer()
                 
-                // Actions
                 HStack(spacing: 12) {
                     Button(action: {
                         selectedDate = nil
-                        secondDate = nil
                         isPresented = false
                     }) {
                         Text("Clear")
@@ -841,7 +952,6 @@ struct ImprovedDatePickerSheet: View {
                     
                     Button(action: {
                         selectedDate = pickerDate
-                        secondDate = nil
                         isPresented = false
                     }) {
                         Text("Apply")
@@ -901,30 +1011,6 @@ struct AdvancedFiltersSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Categories") {
-                    ForEach(viewModel.categories) { category in
-                        Button(action: {
-                            if selectedCategories.contains(category.id) {
-                                selectedCategories.remove(category.id)
-                            } else {
-                                selectedCategories.insert(category.id)
-                            }
-                        }) {
-                            HStack {
-                                Image(systemName: category.icon)
-                                    .foregroundColor(category.colorValue)
-                                Text(category.name)
-                                    .foregroundColor(Theme.Colors.primaryText)
-                                Spacer()
-                                if selectedCategories.contains(category.id) {
-                                    Image(systemName: "checkmark")
-                                        .foregroundColor(Theme.Colors.primary)
-                                }
-                            }
-                        }
-                    }
-                }
-                
                 Section("Accounts") {
                     ForEach(viewModel.accounts) { account in
                         Button(action: {
@@ -934,14 +1020,46 @@ struct AdvancedFiltersSheet: View {
                                 selectedAccounts.insert(account.id)
                             }
                         }) {
-                            HStack {
+                            HStack(spacing: 10) {
                                 Image(systemName: account.icon)
+                                    .font(.system(size: 16))
                                     .foregroundColor(account.colorValue)
+                                    .frame(width: 28)
                                 Text(account.name)
-                                    .foregroundColor(Theme.Colors.primaryText)
+                                    .font(.system(size: 15))
+                                    .foregroundColor(Color(uiColor: .label))
                                 Spacer()
                                 if selectedAccounts.contains(account.id) {
                                     Image(systemName: "checkmark")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(Theme.Colors.primary)
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Section("Categories") {
+                    ForEach(viewModel.categories) { category in
+                        Button(action: {
+                            if selectedCategories.contains(category.id) {
+                                selectedCategories.remove(category.id)
+                            } else {
+                                selectedCategories.insert(category.id)
+                            }
+                        }) {
+                            HStack(spacing: 10) {
+                                Image(systemName: category.icon)
+                                    .font(.system(size: 16))
+                                    .foregroundColor(category.colorValue)
+                                    .frame(width: 28)
+                                Text(category.name)
+                                    .font(.system(size: 15))
+                                    .foregroundColor(Color(uiColor: .label))
+                                Spacer()
+                                if selectedCategories.contains(category.id) {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 14, weight: .semibold))
                                         .foregroundColor(Theme.Colors.primary)
                                 }
                             }

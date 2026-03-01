@@ -590,7 +590,7 @@ struct FrequencyButton: View {
             }
             .frame(width: 70)
             .padding(.vertical, Theme.Spacing.sm)
-            .background(isSelected ? Color.purple : Theme.Colors.secondaryBackground)
+            .background(isSelected ? Theme.Colors.recurring : Theme.Colors.secondaryBackground)
             .foregroundColor(isSelected ? .white : Theme.Colors.primaryText)
             .cornerRadius(Theme.CornerRadius.small)
         }
