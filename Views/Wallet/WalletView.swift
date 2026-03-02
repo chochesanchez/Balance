@@ -91,6 +91,7 @@ struct AccountsListView: View {
     @ObservedObject var viewModel: BalanceViewModel
     let searchText: String
     @Binding var showingAddAccount: Bool
+    @State private var showingAddPot = false
     
     private var filteredAccounts: [Account] {
         if searchText.isEmpty { return viewModel.accounts }
@@ -148,7 +149,7 @@ struct AccountsListView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 20)
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(16)
                 .padding(.horizontal, 16)
                 
@@ -174,7 +175,6 @@ struct AccountsListView: View {
                                     AccountRowView(
                                         account: account,
                                         balance: viewModel.balanceForAccount(account),
-                                        txCount: viewModel.transactionsForAccount(account).count,
                                         currency: viewModel.appState.selectedCurrency
                                     )
                                 }
@@ -184,7 +184,70 @@ struct AccountsListView: View {
                                 }
                             }
                         }
-                        .background(Color(uiColor: .systemBackground))
+                        .background(Color(uiColor: .secondarySystemGroupedBackground))
+                        .cornerRadius(14)
+                        .padding(.horizontal, 16)
+                    }
+                }
+                
+                // Savings Pots
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("SAVINGS POTS")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                        .padding(.horizontal, 20)
+                    
+                    if viewModel.envelopes.isEmpty {
+                        WalletEmptyState(
+                            icon: "tray.2.fill",
+                            title: "No savings pots",
+                            message: "Create pots for Savings, Investment, etc.",
+                            buttonTitle: "Add Pot",
+                            action: { showingAddPot = true }
+                        )
+                    } else {
+                        VStack(spacing: 0) {
+                            ForEach(Array(viewModel.envelopes.enumerated()), id: \.element.id) { index, pot in
+                                NavigationLink(destination: GoalDetailView(viewModel: viewModel, goal: pot)) {
+                                    HStack(spacing: 12) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(pot.colorValue.opacity(0.12))
+                                                .frame(width: 44, height: 44)
+                                            Image(systemName: pot.icon)
+                                                .font(.system(size: 18))
+                                                .foregroundColor(pot.colorValue)
+                                        }
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(pot.title)
+                                                .font(.system(size: 15, weight: .semibold))
+                                                .foregroundColor(Color(uiColor: .label))
+                                            Text("Savings Pot")
+                                                .font(.system(size: 12))
+                                                .foregroundColor(Color(uiColor: .secondaryLabel))
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        Text(formatCurrency(pot.currentAmount, currency: viewModel.appState.selectedCurrency))
+                                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                            .foregroundColor(Color(uiColor: .label))
+                                        
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 11, weight: .medium))
+                                            .foregroundColor(Color(uiColor: .quaternaryLabel))
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 12)
+                                }
+                                
+                                if index < viewModel.envelopes.count - 1 {
+                                    Divider().padding(.leading, 68)
+                                }
+                            }
+                        }
+                        .background(Color(uiColor: .secondarySystemGroupedBackground))
                         .cornerRadius(14)
                         .padding(.horizontal, 16)
                     }
@@ -193,6 +256,13 @@ struct AccountsListView: View {
             .padding(.vertical, 16)
             .padding(.bottom, 16)
         }
+        .sheet(isPresented: $showingAddPot) {
+            NavigationStack {
+                QuickAddPotSheet(viewModel: viewModel)
+            }
+            .presentationDetents([.height(420)])
+            .presentationDragIndicator(.visible)
+        }
     }
 }
 
@@ -200,7 +270,6 @@ struct AccountsListView: View {
 struct AccountRowView: View {
     let account: Account
     let balance: Double
-    let txCount: Int
     let currency: String
     
     var body: some View {
@@ -220,19 +289,9 @@ struct AccountRowView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(Color(uiColor: .label))
                 
-                HStack(spacing: 4) {
-                    Text(account.type.rawValue)
-                        .font(.system(size: 12))
-                        .foregroundColor(Color(uiColor: .secondaryLabel))
-                    
-                    Text("\u{2022}")
-                        .font(.system(size: 8))
-                        .foregroundColor(Color(uiColor: .tertiaryLabel))
-                    
-                    Text("\(txCount) transactions")
-                        .font(.system(size: 12))
-                        .foregroundColor(Color(uiColor: .tertiaryLabel))
-                }
+                Text(account.type.rawValue)
+                    .font(.system(size: 12))
+                    .foregroundColor(Color(uiColor: .secondaryLabel))
             }
             
             Spacer()
@@ -356,7 +415,7 @@ struct CategorySection: View {
                     }
                 }
             }
-            .background(Color(uiColor: .systemBackground))
+            .background(Color(uiColor: .secondarySystemGroupedBackground))
             .cornerRadius(14)
             .padding(.horizontal, 16)
         }
@@ -512,7 +571,7 @@ struct CategoryMetricsView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 20)
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(16)
                 
                 // Period Selector + Amount
@@ -543,7 +602,7 @@ struct CategoryMetricsView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(18)
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(16)
                 
                 // Budget Status
@@ -596,7 +655,7 @@ struct CategoryMetricsView: View {
                         }
                     }
                     .padding(18)
-                    .background(Color(uiColor: .systemBackground))
+                    .background(Color(uiColor: .secondarySystemGroupedBackground))
                     .cornerRadius(16)
                 }
                 
@@ -639,7 +698,7 @@ struct CategoryMetricsView: View {
                     }
                 }
                 .padding(18)
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(16)
                 
                 // Recent Transactions
@@ -681,7 +740,7 @@ struct CategoryMetricsView: View {
                     }
                 }
                 .padding(18)
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(16)
             }
             .padding(.horizontal, 16)
@@ -739,6 +798,7 @@ private struct WalletStatCard: View {
 // MARK: - Account Detail View
 struct AccountDetailView: View {
     @ObservedObject var viewModel: BalanceViewModel
+    @Environment(\.dismiss) private var dismiss
     let account: Account
     
     private var balance: Double { viewModel.balanceForAccount(account) }
@@ -807,7 +867,7 @@ struct AccountDetailView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 20)
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(16)
                 
                 // This Month Overview
@@ -840,7 +900,7 @@ struct AccountDetailView: View {
                     }
                 }
                 .padding(18)
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(16)
                 
                 // All-Time Stats
@@ -880,7 +940,7 @@ struct AccountDetailView: View {
                     }
                 }
                 .padding(18)
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(16)
                 
                 // Recent Transactions
@@ -933,7 +993,7 @@ struct AccountDetailView: View {
                     }
                 }
                 .padding(18)
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(16)
             }
             .padding(.horizontal, 16)
@@ -950,6 +1010,9 @@ struct AccountDetailView: View {
                         .font(.system(size: 15, weight: .medium))
                 }
             }
+        }
+        .onChange(of: viewModel.accounts.map(\.id)) { _, newIds in
+            if !newIds.contains(account.id) { dismiss() }
         }
     }
     
@@ -1007,8 +1070,8 @@ struct AddAccountView: View {
     
     private let accountIcons = [
         "building.columns.fill", "banknote.fill", "creditcard.fill", "wallet.pass.fill",
-        "dollarsign.circle.fill", "safe.fill", "briefcase.fill", "bag.fill",
-        "chart.line.uptrend.xyaxis", "chart.bar.fill", "iphone.gen3", "globe",
+        "dollarsign.circle.fill", "lock.fill", "briefcase.fill", "bag.fill",
+        "chart.line.uptrend.xyaxis", "chart.bar.fill", "iphone", "globe",
         "bitcoinsign.circle.fill", "eurosign.circle.fill", "sterlingsign.circle.fill",
         "yensign.circle.fill", "pesosign.circle.fill", "indianrupeesign.circle.fill",
         "coloncurrencysign.circle.fill", "francsign.circle.fill",
@@ -1091,7 +1154,7 @@ struct AddAccountView: View {
                                 .foregroundColor(Color(uiColor: .secondaryLabel))
                         }
                     }
-                    .background(Color(uiColor: .systemBackground))
+                    .background(Color(uiColor: .secondarySystemGroupedBackground))
                     .cornerRadius(14)
                     .padding(.horizontal, 16)
                     
@@ -1170,18 +1233,22 @@ struct AddCategoryView: View {
     @State private var selectedIcon = "tag.fill"
     @State private var selectedColorIndex = 0
     @State private var note = ""
+    @State private var budgetText = ""
+    @State private var showAllIcons = false
     
     private let categoryIcons = [
         // Food & Dining
         "fork.knife", "cup.and.saucer.fill", "wineglass.fill", "mug.fill", "carrot.fill", "birthday.cake.fill",
-        // Shopping
+        // Shopping & Fashion
         "cart.fill", "basket.fill", "bag.fill", "storefront.fill", "shippingbox.fill", "gift.fill",
+        "tshirt.fill", "shoe.fill", "eyeglasses", "crown.fill",
         // Transport
         "car.fill", "bus.fill", "tram.fill", "bicycle", "airplane", "fuelpump.fill",
         // Entertainment
         "film.fill", "tv.fill", "gamecontroller.fill", "music.note", "ticket.fill", "theatermasks.fill",
-        // Health & Fitness
+        // Health & Fitness & Body
         "heart.fill", "cross.fill", "pills.fill", "stethoscope", "dumbbell.fill", "figure.run",
+        "comb.fill", "scissors", "figure.stand", "face.smiling.fill",
         // Home & Utilities
         "house.fill", "bolt.fill", "drop.fill", "flame.fill", "wifi", "washer.fill",
         // Work
@@ -1190,8 +1257,20 @@ struct AddCategoryView: View {
         "graduationcap.fill", "book.fill", "pencil", "backpack.fill", "books.vertical.fill", "brain.fill",
         // Finance
         "dollarsign.circle.fill", "chart.line.uptrend.xyaxis", "banknote.fill", "percent", "building.columns.fill", "creditcard.fill",
+        // Pets
+        "pawprint.fill", "dog.fill", "cat.fill",
+        // Travel
+        "suitcase.fill", "map.fill", "globe.americas.fill", "bed.double.fill",
+        // Communication
+        "phone.fill", "envelope.fill", "bubble.left.fill",
+        // Nature & Outdoors
+        "leaf.fill", "tree.fill", "mountain.2.fill", "sun.max.fill", "moon.fill",
+        // Kids & Family
+        "figure.2.and.child.holdinghands", "teddybear.fill", "stroller.fill",
+        // Subscriptions & Services
+        "play.rectangle.fill", "wrench.fill", "paintbrush.fill", "hammer.fill",
         // Other
-        "pawprint.fill", "leaf.fill", "camera.fill", "sparkles", "star.fill", "tag.fill",
+        "camera.fill", "sparkles", "star.fill", "tag.fill",
     ]
     
     var body: some View {
@@ -1251,21 +1330,49 @@ struct AddCategoryView: View {
                                 .multilineTextAlignment(.trailing)
                                 .foregroundColor(Color(uiColor: .secondaryLabel))
                         }
+                        
+                        if selectedType == .expense || selectedType == .both {
+                            Divider().padding(.leading, 16)
+                            
+                            FormRow(label: "Monthly Budget") {
+                                TextField("No limit", text: $budgetText)
+                                    .font(.system(size: 15))
+                                    .keyboardType(.decimalPad)
+                                    .multilineTextAlignment(.trailing)
+                                    .foregroundColor(Color(uiColor: .secondaryLabel))
+                            }
+                        }
                     }
-                    .background(Color(uiColor: .systemBackground))
+                    .background(Color(uiColor: .secondarySystemGroupedBackground))
                     .cornerRadius(14)
                     .padding(.horizontal, 16)
                     
                     // Icon
                     PickerSection(title: "Icon") {
+                        let visibleIcons = showAllIcons ? categoryIcons : Array(categoryIcons.prefix(24))
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
-                            ForEach(categoryIcons, id: \.self) { icon in
+                            ForEach(visibleIcons, id: \.self) { icon in
                                 IconPickerItem(
                                     icon: icon,
                                     color: Theme.Colors.categoryColors[selectedColorIndex],
                                     isSelected: selectedIcon == icon,
                                     action: { selectedIcon = icon; Haptics.selection() }
                                 )
+                            }
+                        }
+                        
+                        if categoryIcons.count > 24 {
+                            Button {
+                                withAnimation(.snappy) { showAllIcons.toggle() }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Text(showAllIcons ? "Show Less" : "Show More")
+                                        .font(.system(size: 13, weight: .medium))
+                                    Image(systemName: showAllIcons ? "chevron.up" : "chevron.down")
+                                        .font(.system(size: 10, weight: .semibold))
+                                }
+                                .foregroundColor(Theme.Colors.primary)
+                                .padding(.top, 6)
                             }
                         }
                     }
@@ -1304,9 +1411,11 @@ struct AddCategoryView: View {
     
     private func addCategory() {
         let colorHex = Theme.Colors.categoryColors[selectedColorIndex].toHex() ?? "#007AFF"
+        let budget = Double(budgetText.replacingOccurrences(of: ",", with: "."))
         let category = Category(
             name: name, icon: selectedIcon, color: colorHex,
-            type: selectedType, sortOrder: viewModel.categories.count,
+            type: selectedType, budget: budget,
+            sortOrder: viewModel.categories.count,
             note: note.isEmpty ? nil : note
         )
         viewModel.addCategory(category)
@@ -1325,18 +1434,44 @@ struct EditCategoryView: View {
     @State private var selectedIcon: String
     @State private var selectedColorIndex: Int
     @State private var note: String
+    @State private var budgetText: String
+    @State private var showAllIcons = false
     
     private let categoryIcons = [
+        // Food & Dining
         "fork.knife", "cup.and.saucer.fill", "wineglass.fill", "mug.fill", "carrot.fill", "birthday.cake.fill",
+        // Shopping & Fashion
         "cart.fill", "basket.fill", "bag.fill", "storefront.fill", "shippingbox.fill", "gift.fill",
+        "tshirt.fill", "shoe.fill", "eyeglasses", "crown.fill",
+        // Transport
         "car.fill", "bus.fill", "tram.fill", "bicycle", "airplane", "fuelpump.fill",
+        // Entertainment
         "film.fill", "tv.fill", "gamecontroller.fill", "music.note", "ticket.fill", "theatermasks.fill",
+        // Health & Fitness & Body
         "heart.fill", "cross.fill", "pills.fill", "stethoscope", "dumbbell.fill", "figure.run",
+        "comb.fill", "scissors", "figure.stand", "face.smiling.fill",
+        // Home & Utilities
         "house.fill", "bolt.fill", "drop.fill", "flame.fill", "wifi", "washer.fill",
+        // Work
         "briefcase.fill", "laptopcomputer", "desktopcomputer", "printer.fill", "keyboard.fill", "doc.fill",
+        // Education
         "graduationcap.fill", "book.fill", "pencil", "backpack.fill", "books.vertical.fill", "brain.fill",
+        // Finance
         "dollarsign.circle.fill", "chart.line.uptrend.xyaxis", "banknote.fill", "percent", "building.columns.fill", "creditcard.fill",
-        "pawprint.fill", "leaf.fill", "camera.fill", "sparkles", "star.fill", "tag.fill",
+        // Pets
+        "pawprint.fill", "dog.fill", "cat.fill",
+        // Travel
+        "suitcase.fill", "map.fill", "globe.americas.fill", "bed.double.fill",
+        // Communication
+        "phone.fill", "envelope.fill", "bubble.left.fill",
+        // Nature & Outdoors
+        "leaf.fill", "tree.fill", "mountain.2.fill", "sun.max.fill", "moon.fill",
+        // Kids & Family
+        "figure.2.and.child.holdinghands", "teddybear.fill", "stroller.fill",
+        // Subscriptions & Services
+        "play.rectangle.fill", "wrench.fill", "paintbrush.fill", "hammer.fill",
+        // Other
+        "camera.fill", "sparkles", "star.fill", "tag.fill",
     ]
     
     init(viewModel: BalanceViewModel, category: Category) {
@@ -1345,6 +1480,7 @@ struct EditCategoryView: View {
         _name = State(initialValue: category.name)
         _selectedIcon = State(initialValue: category.icon)
         _note = State(initialValue: category.note ?? "")
+        _budgetText = State(initialValue: category.budget != nil ? String(format: "%.0f", category.budget!) : "")
         
         var colorIndex = 0
         for (index, color) in Theme.Colors.categoryColors.enumerated() {
@@ -1395,21 +1531,49 @@ struct EditCategoryView: View {
                             .multilineTextAlignment(.trailing)
                             .foregroundColor(Color(uiColor: .secondaryLabel))
                     }
+                    
+                    if category.type == .expense || category.type == .both {
+                        Divider().padding(.leading, 16)
+                        
+                        FormRow(label: "Monthly Budget") {
+                            TextField("No limit", text: $budgetText)
+                                .font(.system(size: 15))
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                                .foregroundColor(Color(uiColor: .secondaryLabel))
+                        }
+                    }
                 }
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(14)
                 .padding(.horizontal, 16)
                 
                 // Icon
                 PickerSection(title: "Icon") {
+                    let visibleIcons = showAllIcons ? categoryIcons : Array(categoryIcons.prefix(24))
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
-                        ForEach(categoryIcons, id: \.self) { icon in
+                        ForEach(visibleIcons, id: \.self) { icon in
                             IconPickerItem(
                                 icon: icon,
                                 color: Theme.Colors.categoryColors[selectedColorIndex],
                                 isSelected: selectedIcon == icon,
                                 action: { selectedIcon = icon; Haptics.selection() }
                             )
+                        }
+                    }
+                    
+                    if categoryIcons.count > 24 {
+                        Button {
+                            withAnimation(.snappy) { showAllIcons.toggle() }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text(showAllIcons ? "Show Less" : "Show More")
+                                    .font(.system(size: 13, weight: .medium))
+                                Image(systemName: showAllIcons ? "chevron.up" : "chevron.down")
+                                    .font(.system(size: 10, weight: .semibold))
+                            }
+                            .foregroundColor(Theme.Colors.primary)
+                            .padding(.top, 6)
                         }
                     }
                 }
@@ -1436,7 +1600,7 @@ struct EditCategoryView: View {
                             .font(.system(size: 15, weight: .medium))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(Color(uiColor: .systemBackground))
+                            .background(Color(uiColor: .secondarySystemGroupedBackground))
                             .cornerRadius(14)
                     }
                     .padding(.horizontal, 16)
@@ -1463,6 +1627,7 @@ struct EditCategoryView: View {
         updated.icon = selectedIcon
         updated.color = colorHex
         updated.note = note.isEmpty ? nil : note
+        updated.budget = Double(budgetText.replacingOccurrences(of: ",", with: "."))
         viewModel.updateCategory(updated)
         Haptics.success()
         dismiss()
@@ -1483,8 +1648,8 @@ struct EditAccountView: View {
     
     private let accountIcons = [
         "building.columns.fill", "banknote.fill", "creditcard.fill", "wallet.pass.fill",
-        "dollarsign.circle.fill", "safe.fill", "briefcase.fill", "bag.fill",
-        "chart.line.uptrend.xyaxis", "chart.bar.fill", "iphone.gen3", "globe",
+        "dollarsign.circle.fill", "lock.fill", "briefcase.fill", "bag.fill",
+        "chart.line.uptrend.xyaxis", "chart.bar.fill", "iphone", "globe",
         "bitcoinsign.circle.fill", "eurosign.circle.fill", "sterlingsign.circle.fill",
         "yensign.circle.fill", "pesosign.circle.fill", "indianrupeesign.circle.fill",
         "coloncurrencysign.circle.fill", "francsign.circle.fill",
@@ -1567,7 +1732,7 @@ struct EditAccountView: View {
                             .foregroundColor(Color(uiColor: .secondaryLabel))
                     }
                 }
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(14)
                 .padding(.horizontal, 16)
                 
@@ -1606,7 +1771,7 @@ struct EditAccountView: View {
                             .font(.system(size: 15, weight: .medium))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(Color(uiColor: .systemBackground))
+                            .background(Color(uiColor: .secondarySystemGroupedBackground))
                             .cornerRadius(14)
                     }
                     .padding(.horizontal, 16)
@@ -1672,7 +1837,7 @@ private struct PickerSection<Content: View>: View {
             
             content
                 .padding(12)
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(14)
                 .padding(.horizontal, 16)
         }
@@ -1774,7 +1939,7 @@ struct TotalBalanceCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(20)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(16)
     }
 }

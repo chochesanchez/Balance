@@ -18,8 +18,8 @@ let package = Package(
             targets: ["AppModule"],
             bundleIdentifier: "com.chochesanchez.Balance",
             teamIdentifier: "CLE629MGG8",
-            displayVersion: "1.0",
-            bundleVersion: "1",
+            displayVersion: "3.0",
+            bundleVersion: "3",
             appIcon: .asset("AppIcon"),
             accentColor: .asset("AccentColor"),
             supportedDeviceFamilies: [

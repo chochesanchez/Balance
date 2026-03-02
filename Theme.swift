@@ -20,7 +20,7 @@ struct Theme {
         // Background Colors
         static let background = Color(uiColor: .systemGroupedBackground)
         static let secondaryBackground = Color(uiColor: .secondarySystemGroupedBackground)
-        static let cardBackground = Color(uiColor: .systemBackground)
+        static let cardBackground = Color(uiColor: .secondarySystemGroupedBackground)
         
         // Text Colors
         static let primaryText = Color(uiColor: .label)

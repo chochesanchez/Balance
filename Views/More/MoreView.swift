@@ -506,7 +506,7 @@ struct AnalyticsView: View {
                     }
                 }
                 .padding(16)
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(16)
                 .padding(.horizontal, 16)
                 
@@ -530,7 +530,7 @@ struct AnalyticsView: View {
                     }
                 }
                 .padding(16)
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(14)
                 .padding(.horizontal, 16)
                 
@@ -556,7 +556,7 @@ struct AnalyticsView: View {
                         }
                     }
                     .padding(16)
-                    .background(Color(uiColor: .systemBackground))
+                    .background(Color(uiColor: .secondarySystemGroupedBackground))
                     .cornerRadius(14)
                     .padding(.horizontal, 16)
                 }
@@ -590,7 +590,7 @@ struct AnalyticsView: View {
                     }
                 }
                 .padding(16)
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(14)
                 .padding(.horizontal, 16)
             }
@@ -722,7 +722,7 @@ struct StatCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(12)
     }
 }
@@ -960,7 +960,14 @@ struct GoalRowView: View {
 
 struct GoalDetailView: View {
     @ObservedObject var viewModel: BalanceViewModel
+    @Environment(\.dismiss) private var dismiss
     let goal: Goal
+    @State private var showContribute = false
+    @State private var showEdit = false
+    
+    private var currentGoal: Goal {
+        viewModel.goals.first(where: { $0.id == goal.id }) ?? goal
+    }
     
     var body: some View {
         List {
@@ -968,19 +975,54 @@ struct GoalDetailView: View {
                 VStack(spacing: 14) {
                     ZStack {
                         Circle()
-                            .fill(goal.colorValue.opacity(0.12))
+                            .fill(currentGoal.colorValue.opacity(0.12))
                             .frame(width: 80, height: 80)
-                        Image(systemName: goal.icon)
+                        Image(systemName: currentGoal.icon)
                             .font(.system(size: 36))
-                            .foregroundColor(goal.colorValue)
+                            .foregroundColor(currentGoal.colorValue)
                     }
                     
-                    Text(goal.title)
+                    Text(currentGoal.title)
                         .font(.system(size: 22, weight: .bold))
                     
-                    Text("\(Int(goal.progress))% complete")
-                        .font(.system(size: 14))
-                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                    if currentGoal.targetAmount > 0 {
+                        Text("\(Int(currentGoal.progress))% complete")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color(uiColor: .secondaryLabel))
+                    }
+                    
+                    // Quick contribute buttons
+                    HStack(spacing: 12) {
+                        Button(action: { showContribute = true }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 14))
+                                Text("Add Money")
+                                    .font(.system(size: 14, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(currentGoal.colorValue)
+                            .cornerRadius(20)
+                        }
+                        
+                        if currentGoal.currentAmount > 0 {
+                            Button(action: { showContribute = true }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "minus.circle.fill")
+                                        .font(.system(size: 14))
+                                    Text("Withdraw")
+                                        .font(.system(size: 14, weight: .medium))
+                                }
+                                .foregroundColor(currentGoal.colorValue)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background(currentGoal.colorValue.opacity(0.1))
+                                .cornerRadius(20)
+                            }
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 .listRowBackground(Color.clear)
@@ -990,26 +1032,43 @@ struct GoalDetailView: View {
                 HStack {
                     Text("Current Amount")
                     Spacer()
-                    Text(formatCurrency(goal.currentAmount, currency: viewModel.appState.selectedCurrency))
+                    Text(formatCurrency(currentGoal.currentAmount, currency: viewModel.appState.selectedCurrency))
                         .foregroundColor(Theme.Colors.income)
+                        .contentTransition(.numericText())
                 }
                 
-                HStack {
-                    Text("Target Amount")
-                    Spacer()
-                    Text(formatCurrency(goal.targetAmount, currency: viewModel.appState.selectedCurrency))
-                        .foregroundColor(Color(uiColor: .secondaryLabel))
-                }
-                
-                HStack {
-                    Text("Remaining")
-                    Spacer()
-                    Text(formatCurrency(max(0, goal.targetAmount - goal.currentAmount), currency: viewModel.appState.selectedCurrency))
-                        .foregroundColor(Color(uiColor: .label))
+                if currentGoal.targetAmount > 0 {
+                    HStack {
+                        Text("Target Amount")
+                        Spacer()
+                        Text(formatCurrency(currentGoal.targetAmount, currency: viewModel.appState.selectedCurrency))
+                            .foregroundColor(Color(uiColor: .secondaryLabel))
+                    }
+                    
+                    HStack {
+                        Text("Remaining")
+                        Spacer()
+                        Text(formatCurrency(max(0, currentGoal.targetAmount - currentGoal.currentAmount), currency: viewModel.appState.selectedCurrency))
+                            .foregroundColor(Color(uiColor: .label))
+                    }
+                    
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(Color(uiColor: .tertiarySystemFill))
+                                .frame(height: 8)
+                            Capsule()
+                                .fill(currentGoal.colorValue)
+                                .frame(width: geometry.size.width * CGFloat(min(currentGoal.progress / 100, 1.0)), height: 8)
+                                .animation(.spring, value: currentGoal.progress)
+                        }
+                    }
+                    .frame(height: 8)
+                    .listRowBackground(Color.clear)
                 }
             }
             
-            if let deadline = goal.deadline {
+            if let deadline = currentGoal.deadline {
                 Section("Deadline") {
                     HStack {
                         Image(systemName: "calendar")
@@ -1018,15 +1077,242 @@ struct GoalDetailView: View {
                     }
                 }
             }
+            
+            Section {
+                Button(role: .destructive) {
+                    viewModel.deleteGoal(goal)
+                } label: {
+                    HStack {
+                        Image(systemName: "trash")
+                        Text("Delete \(currentGoal.goalType == .envelope ? "Pot" : "Goal")")
+                    }
+                }
+            }
         }
-        .navigationTitle(goal.title)
+        .navigationTitle(currentGoal.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Edit") { showEdit = true }
+            }
+        }
+        .sheet(isPresented: $showContribute) {
+            GoalContributeSheet(viewModel: viewModel, goal: currentGoal)
+        }
+        .sheet(isPresented: $showEdit) {
+            EditGoalView(viewModel: viewModel, goal: currentGoal)
+        }
+        .onChange(of: viewModel.goals.map(\.id)) { _, newIds in
+            if !newIds.contains(goal.id) { dismiss() }
+        }
     }
     
     private func formatGoalDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .long
         return formatter.string(from: date)
+    }
+}
+
+// MARK: - Goal Contribute Sheet
+struct GoalContributeSheet: View {
+    @ObservedObject var viewModel: BalanceViewModel
+    let goal: Goal
+    @Environment(\.dismiss) private var dismiss
+    @State private var amount = ""
+    @State private var isWithdraw = false
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                ZStack {
+                    Circle()
+                        .fill(goal.colorValue.opacity(0.12))
+                        .frame(width: 60, height: 60)
+                    Image(systemName: goal.icon)
+                        .font(.system(size: 26))
+                        .foregroundColor(goal.colorValue)
+                }
+                
+                Text(goal.title)
+                    .font(.system(size: 17, weight: .semibold))
+                
+                Text(formatCurrency(goal.currentAmount, currency: viewModel.appState.selectedCurrency))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundColor(goal.colorValue)
+                
+                // Toggle add/withdraw
+                Picker("", selection: $isWithdraw) {
+                    Text("Add").tag(false)
+                    Text("Withdraw").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 40)
+                
+                HStack(spacing: 4) {
+                    Text("$")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundColor(Color(uiColor: .label).opacity(amount.isEmpty ? 0.25 : 1))
+                    
+                    TextField("0", text: $amount)
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(Color(uiColor: .label))
+                }
+                .frame(maxWidth: 200)
+                
+                Spacer()
+                
+                Button(action: contribute) {
+                    Text(isWithdraw ? "Withdraw" : "Add Money")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
+                        .background(Double(amount) != nil && Double(amount)! > 0 ? goal.colorValue : goal.colorValue.opacity(0.3))
+                        .cornerRadius(14)
+                }
+                .disabled(Double(amount) == nil || Double(amount)! <= 0)
+                .padding(.horizontal, 20)
+            }
+            .padding(.top, 24)
+            .padding(.bottom, 24)
+            .navigationTitle(isWithdraw ? "Withdraw" : "Add Money")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.height(420)])
+        .presentationDragIndicator(.visible)
+    }
+    
+    private func contribute() {
+        guard let value = Double(amount), value > 0 else { return }
+        let adjustedAmount = isWithdraw ? -value : value
+        viewModel.contributeToGoal(goal, amount: adjustedAmount)
+        Haptics.success()
+        dismiss()
+    }
+}
+
+// MARK: - Edit Goal View
+struct EditGoalView: View {
+    @ObservedObject var viewModel: BalanceViewModel
+    let goal: Goal
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var title: String
+    @State private var targetAmount: String
+    @State private var hasDeadline: Bool
+    @State private var deadline: Date
+    @State private var selectedIcon: String
+    @State private var selectedColorIndex: Int
+    
+    private let goalIcons = ["star.fill", "target", "banknote.fill", "chart.line.uptrend.xyaxis", "heart.fill", "graduationcap.fill", "airplane", "house.fill", "gift.fill", "leaf.fill", "car.fill", "laptopcomputer"]
+    
+    init(viewModel: BalanceViewModel, goal: Goal) {
+        self.viewModel = viewModel
+        self.goal = goal
+        _title = State(initialValue: goal.title)
+        _targetAmount = State(initialValue: goal.targetAmount > 0 ? String(format: "%.0f", goal.targetAmount) : "")
+        _hasDeadline = State(initialValue: goal.deadline != nil)
+        _deadline = State(initialValue: goal.deadline ?? Date().addingTimeInterval(86400 * 30))
+        _selectedIcon = State(initialValue: goal.icon)
+        
+        var colorIdx = 0
+        for (index, color) in Theme.Colors.categoryColors.enumerated() {
+            if let hex = color.toHex(), hex.uppercased() == goal.color.uppercased() {
+                colorIdx = index
+                break
+            }
+        }
+        _selectedColorIndex = State(initialValue: colorIdx)
+    }
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Details") {
+                    TextField("Title", text: $title)
+                    
+                    if goal.goalType == .goal {
+                        HStack {
+                            Text("$")
+                                .foregroundColor(Color(uiColor: .secondaryLabel))
+                            TextField("Target Amount", text: $targetAmount)
+                                .keyboardType(.decimalPad)
+                        }
+                    }
+                }
+                
+                if goal.goalType == .goal {
+                    Section("Deadline") {
+                        Toggle("Set Deadline", isOn: $hasDeadline)
+                        if hasDeadline {
+                            DatePicker("Deadline", selection: $deadline, in: Date()..., displayedComponents: .date)
+                        }
+                    }
+                }
+                
+                Section("Icon") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
+                        ForEach(goalIcons, id: \.self) { icon in
+                            Button(action: { selectedIcon = icon }) {
+                                Image(systemName: icon)
+                                    .font(.system(size: 18))
+                                    .foregroundColor(selectedIcon == icon ? .white : Color(uiColor: .label))
+                                    .frame(width: 40, height: 40)
+                                    .background(selectedIcon == icon ? Theme.Colors.categoryColors[selectedColorIndex] : Color(uiColor: .tertiarySystemFill))
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                
+                Section("Color") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
+                        ForEach(0..<min(12, Theme.Colors.categoryColors.count), id: \.self) { index in
+                            ColorPickerItem(
+                                color: Theme.Colors.categoryColors[index],
+                                isSelected: selectedColorIndex == index,
+                                action: { selectedColorIndex = index }
+                            )
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Edit \(goal.goalType == .envelope ? "Pot" : "Goal")")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") { saveChanges() }
+                        .fontWeight(.semibold)
+                        .disabled(title.isEmpty)
+                }
+            }
+        }
+    }
+    
+    private func saveChanges() {
+        var updated = goal
+        updated.title = title
+        updated.icon = selectedIcon
+        updated.color = Theme.Colors.categoryColors[selectedColorIndex].toHex() ?? goal.color
+        if goal.goalType == .goal {
+            if let amount = Double(targetAmount) { updated.targetAmount = amount }
+            updated.deadline = hasDeadline ? deadline : nil
+        }
+        viewModel.updateGoal(updated)
+        Haptics.success()
+        dismiss()
     }
 }
 
@@ -1304,7 +1590,7 @@ struct FinancialHealthView: View {
                     )
                 }
                 .padding(16)
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(16)
                 .padding(.horizontal, 16)
                 
@@ -1340,7 +1626,7 @@ struct FinancialHealthView: View {
                     }
                 }
                 .padding(16)
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(16)
                 .padding(.horizontal, 16)
             }
@@ -1617,7 +1903,7 @@ struct TipCategoryCard: View {
                 }
             }
         }
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(14)
         .padding(.horizontal, 16)
         .animation(.snappy(duration: 0.3), value: isExpanded)
@@ -1651,6 +1937,8 @@ struct TipRow: View {
 struct SettingsView: View {
     @ObservedObject var viewModel: BalanceViewModel
     @State private var spendingLimitText: String = ""
+    @State private var showExportSheet = false
+    @State private var exportURL: URL?
     
     var body: some View {
         List {
@@ -1666,6 +1954,20 @@ struct SettingsView: View {
                             .font(.system(size: 14))
                             .foregroundColor(Color(uiColor: .secondaryLabel))
                     }
+                }
+                
+                HStack {
+                    Image(systemName: "house.fill")
+                        .foregroundColor(Theme.Colors.primary)
+                        .frame(width: 24)
+                    Toggle("Open on Record tab", isOn: Binding(
+                        get: { viewModel.appState.defaultTab == 2 },
+                        set: { newValue in
+                            viewModel.appState.defaultTab = newValue ? 2 : 0
+                            viewModel.saveData()
+                        }
+                    ))
+                    .font(.system(size: 15))
                 }
             }
             
@@ -1690,24 +1992,67 @@ struct SettingsView: View {
                 }
             }
             
+            Section(header: Text("Notifications"), footer: Text("Control which notifications Balance sends you.")) {
+                HStack {
+                    Image(systemName: "repeat.circle.fill")
+                        .foregroundColor(Theme.Colors.recurring)
+                        .frame(width: 24)
+                    Toggle("Recurring reminders", isOn: Binding(
+                        get: { viewModel.appState.recurringReminders },
+                        set: { viewModel.appState.recurringReminders = $0; viewModel.saveData() }
+                    ))
+                    .font(.system(size: 15))
+                }
+                
+                HStack {
+                    Image(systemName: "target")
+                        .foregroundColor(Theme.Colors.goals)
+                        .frame(width: 24)
+                    Toggle("Goal deadline reminders", isOn: Binding(
+                        get: { viewModel.appState.goalReminders },
+                        set: { viewModel.appState.goalReminders = $0; viewModel.saveData() }
+                    ))
+                    .font(.system(size: 15))
+                }
+                
+                HStack {
+                    Image(systemName: "chart.bar.fill")
+                        .foregroundColor(Theme.Colors.primary)
+                        .frame(width: 24)
+                    Toggle("Weekly spending summary", isOn: Binding(
+                        get: { viewModel.appState.weeklySummary },
+                        set: { viewModel.appState.weeklySummary = $0; viewModel.saveData() }
+                    ))
+                    .font(.system(size: 15))
+                }
+            }
+            
             Section("Data") {
-                Button(action: {}) {
+                Button(action: exportCSV) {
                     HStack {
-                        Image(systemName: "square.and.arrow.up")
+                        Image(systemName: "tablecells")
                             .foregroundColor(Theme.Colors.primary)
                             .frame(width: 24)
-                        Text("Export Data")
+                        Text("Export as CSV")
                             .foregroundColor(Color(uiColor: .label))
+                        Spacer()
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color(uiColor: .tertiaryLabel))
                     }
                 }
                 
-                Button(action: {}) {
+                Button(action: exportJSON) {
                     HStack {
-                        Image(systemName: "square.and.arrow.down")
+                        Image(systemName: "doc.text")
                             .foregroundColor(Theme.Colors.primary)
                             .frame(width: 24)
-                        Text("Import Data")
+                        Text("Export as JSON")
                             .foregroundColor(Color(uiColor: .label))
+                        Spacer()
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color(uiColor: .tertiaryLabel))
                     }
                 }
             }
@@ -1716,7 +2061,74 @@ struct SettingsView: View {
         .onAppear {
             spendingLimitText = viewModel.appState.weeklySpendingLimit > 0 ? String(format: "%.0f", viewModel.appState.weeklySpendingLimit) : ""
         }
+        .sheet(isPresented: $showExportSheet) {
+            if let url = exportURL {
+                ShareSheet(items: [url])
+            }
+        }
     }
+    
+    private func exportCSV() {
+        var csv = "Date,Type,Amount,Account,Category,Title,Note\n"
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm"
+        
+        for tx in viewModel.transactions.sorted(by: { $0.date > $1.date }) {
+            let date = dateFormatter.string(from: tx.date)
+            let type = tx.type.rawValue
+            let amount = String(format: "%.2f", tx.amount)
+            let account = viewModel.getAccount(by: tx.accountId)?.name ?? ""
+            let category = viewModel.getCategory(by: tx.categoryId)?.name ?? ""
+            let title = tx.title.replacingOccurrences(of: ",", with: ";")
+            let note = tx.note.replacingOccurrences(of: ",", with: ";")
+            csv += "\(date),\(type),\(amount),\(account),\(category),\(title),\(note)\n"
+        }
+        
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("Balance_Export.csv")
+        try? csv.write(to: tempURL, atomically: true, encoding: .utf8)
+        exportURL = tempURL
+        showExportSheet = true
+    }
+    
+    private func exportJSON() {
+        struct BalanceExport: Codable {
+            let accounts: [Account]
+            let categories: [Category]
+            let transactions: [Transaction]
+            let goals: [Goal]
+            let recurringTransactions: [RecurringTransaction]
+            let exportDate: Date
+        }
+        
+        let export = BalanceExport(
+            accounts: viewModel.accounts,
+            categories: viewModel.categories,
+            transactions: viewModel.transactions,
+            goals: viewModel.goals,
+            recurringTransactions: viewModel.recurringTransactions,
+            exportDate: Date()
+        )
+        
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = .prettyPrinted
+        
+        guard let data = try? encoder.encode(export) else { return }
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("Balance_Export.json")
+        try? data.write(to: tempURL)
+        exportURL = tempURL
+        showExportSheet = true
+    }
+}
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 struct CurrencySettingsView: View {

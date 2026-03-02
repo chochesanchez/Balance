@@ -117,6 +117,16 @@ struct RecordView: View {
         .onChange(of: viewModel.appState.selectedCurrency) { _, _ in
             viewModel.saveData()
         }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                }
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(Theme.Colors.primary)
+            }
+        }
     }
     
     // MARK: - Helpers
@@ -244,7 +254,7 @@ struct AmountInputSection: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 32)
         .padding(.horizontal, 20)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(16)
     }
 }
@@ -274,7 +284,7 @@ private struct RecordCurrencyRow: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(14)
     }
 }
@@ -303,7 +313,7 @@ private struct TypeSelectorCard: View {
             }
         }
         .padding(16)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(16)
     }
 }
@@ -405,7 +415,7 @@ private struct AccountSelectionCard: View {
             }
         }
         .padding(16)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(16)
     }
 }
@@ -512,7 +522,7 @@ struct CategorySelectionCard: View {
             }
         }
         .padding(16)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(16)
     }
 }
@@ -592,7 +602,7 @@ private struct DetailsCard: View {
             }
             .padding(.horizontal, 16).padding(.vertical, 10)
         }
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(16)
     }
 }
@@ -698,7 +708,7 @@ private struct RecurringCard: View {
             }
         }
         .padding(16)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(16)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isRecurring)
     }
@@ -720,7 +730,7 @@ private struct RecordPlaceholderCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(16)
         .opacity(0.5)
     }

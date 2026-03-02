@@ -220,9 +220,9 @@ struct SpendingGaugeCard: View {
                 .padding(3)
                 .background(Color(uiColor: .tertiarySystemFill))
                 .clipShape(Capsule())
-                
-                Spacer()
-                
+            
+            Spacer()
+            
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.25)) { isHidden = true }
                     Haptics.light()
@@ -333,7 +333,7 @@ struct SpendingGaugeCard: View {
             }
         }
         .padding(20)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(16)
         .transition(.opacity.combined(with: .scale(scale: 0.95)))
         .onAppear { animateGauge() }
@@ -399,7 +399,7 @@ struct SpendingLimitEditor: View {
                         }) {
                             Text(formatCompactAmount(amount, currency: viewModel.appState.selectedCurrency))
                                 .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(Theme.Colors.primary)
+                        .foregroundColor(Theme.Colors.primary)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
                                 .background(Theme.Colors.primary.opacity(0.08))
@@ -537,7 +537,7 @@ struct BalanceHiddenPill: View {
     var body: some View {
         Button(action: {
             withAnimation(.easeInOut(duration: 0.25)) { isHidden = false }
-            Haptics.light()
+                        Haptics.light()
         }) {
             HStack(spacing: 10) {
                 Image(systemName: "eye.slash")
@@ -556,7 +556,7 @@ struct BalanceHiddenPill: View {
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 14)
-            .background(Color(uiColor: .systemBackground))
+            .background(Color(uiColor: .secondarySystemGroupedBackground))
             .cornerRadius(14)
         }
         .transition(.opacity.combined(with: .scale(scale: 0.95)))
@@ -583,7 +583,7 @@ struct QuickActionsRow: View {
             }
         }
         .padding(14)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(16)
     }
 }
@@ -620,7 +620,6 @@ struct QuickActionButton: View {
 // MARK: - Savings Pots (Envelopes)
 struct SavingsPotsSummarySection: View {
     @ObservedObject var viewModel: BalanceViewModel
-    @State private var selectedPot: Goal? = nil
     @State private var showAddPot = false
     
     var body: some View {
@@ -657,14 +656,36 @@ struct SavingsPotsSummarySection: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(Color(uiColor: .systemBackground))
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(16)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(viewModel.envelopes) { pot in
-                            SavingsPotCard(pot: pot, currency: viewModel.appState.selectedCurrency) {
-                                selectedPot = pot
+                            NavigationLink(destination: GoalDetailView(viewModel: viewModel, goal: pot)) {
+                                VStack(spacing: 8) {
+                                    Image(systemName: pot.icon)
+                                        .font(.system(size: 18))
+                                        .foregroundColor(pot.colorValue)
+                                        .frame(width: 40, height: 40)
+                                        .background(pot.colorValue.opacity(0.12))
+                                        .clipShape(Circle())
+                                    
+                                    Text(formatCurrency(pot.currentAmount, currency: viewModel.appState.selectedCurrency))
+                                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                        .foregroundColor(Color(uiColor: .label))
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.7)
+                                    
+                                    Text(pot.title)
+                                        .font(.system(size: 11))
+                                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                                        .lineLimit(1)
+                                }
+                                .frame(width: 100)
+                                .padding(.vertical, 14)
+                                .background(Color(uiColor: .secondarySystemGroupedBackground))
+                                .cornerRadius(14)
                             }
                         }
                         
@@ -687,17 +708,12 @@ struct SavingsPotsSummarySection: View {
                             }
                             .frame(width: 100)
                             .padding(.vertical, 14)
-                            .background(Color(uiColor: .systemBackground))
+                            .background(Color(uiColor: .secondarySystemGroupedBackground))
                             .cornerRadius(14)
                         }
                     }
                 }
             }
-        }
-        .sheet(item: $selectedPot) { pot in
-            PotContributeSheet(viewModel: viewModel, pot: pot)
-                .presentationDetents([.height(300)])
-                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showAddPot) {
             NavigationStack {
@@ -737,7 +753,7 @@ struct SavingsPotCard: View {
             }
             .frame(width: 100)
             .padding(.vertical, 14)
-            .background(Color(uiColor: .systemBackground))
+            .background(Color(uiColor: .secondarySystemGroupedBackground))
             .cornerRadius(14)
         }
         .buttonStyle(PressEffectButtonStyle())
@@ -770,7 +786,7 @@ struct PotContributeSheet: View {
                     .background(pot.colorValue.opacity(0.12))
                     .clipShape(Circle())
                 
-                VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 2) {
                     Text(pot.title)
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(Color(uiColor: .label))
@@ -778,9 +794,9 @@ struct PotContributeSheet: View {
                     Text("Balance: \(formatCurrency(pot.currentAmount, currency: viewModel.appState.selectedCurrency))")
                         .font(.system(size: 13))
                         .foregroundColor(Color(uiColor: .secondaryLabel))
-                }
-                
-                Spacer()
+            }
+            
+            Spacer()
             }
             .padding(.top, 8)
             
@@ -1002,9 +1018,9 @@ struct MoneyDistributionCard: View {
                 Text("Money Distribution")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(Color(uiColor: .label))
-                
-                Spacer()
-                
+            
+            Spacer()
+            
                 Text(formatCurrency(total, currency: viewModel.appState.selectedCurrency))
                     .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundColor(Color(uiColor: .label))
@@ -1064,7 +1080,7 @@ struct MoneyDistributionCard: View {
             }
         }
         .padding(18)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(16)
     }
 }
@@ -1098,7 +1114,7 @@ struct WeeklyBalanceChart: View {
                 if let last = data.last {
                     Text(formatCurrency(last.balance, currency: viewModel.appState.selectedCurrency))
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundColor(Theme.Colors.primary)
+                    .foregroundColor(Theme.Colors.primary)
                 }
             }
             
@@ -1170,7 +1186,7 @@ struct WeeklyBalanceChart: View {
             }
         }
         .padding(18)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(16)
     }
 }
@@ -1367,7 +1383,7 @@ struct HomeCalendarSection: View {
             }
         }
         .padding(18)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(16)
     }
     
@@ -1398,8 +1414,18 @@ struct AccountsSection: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HomeSectionHeader(title: "My Accounts") {
-                // Navigation handled by NavigationLink below
+            HStack {
+                Text("My Accounts")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Color(uiColor: .label))
+                
+                Spacer()
+                
+                NavigationLink(destination: WalletView(viewModel: viewModel)) {
+                Text("See All")
+                        .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Theme.Colors.primary)
+                }
             }
             
             ScrollView(.horizontal, showsIndicators: false) {
@@ -1408,9 +1434,9 @@ struct AccountsSection: View {
                         AccountCard(
                             account: account,
                             balance: viewModel.balanceForAccount(account),
-                            currency: viewModel.appState.selectedCurrency
-                        )
-                    }
+                    currency: viewModel.appState.selectedCurrency
+                )
+            }
                     
                     NavigationLink(destination: WalletView(viewModel: viewModel)) {
                         VStack(spacing: 8) {
@@ -1431,7 +1457,7 @@ struct AccountsSection: View {
                         }
                         .frame(width: 100)
                         .padding(.vertical, 14)
-                        .background(Color(uiColor: .systemBackground))
+                        .background(Color(uiColor: .secondarySystemGroupedBackground))
                         .cornerRadius(14)
                     }
                 }
@@ -1467,7 +1493,7 @@ struct AccountCard: View {
         }
         .frame(width: 100)
         .padding(.vertical, 14)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(14)
     }
 }
@@ -1493,7 +1519,7 @@ struct GoalsSummarySection: View {
                 
                 Spacer()
                 
-                NavigationLink(destination: MoreView(viewModel: viewModel)) {
+                NavigationLink(destination: GoalsListView(viewModel: viewModel)) {
                     Text("See All")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(Theme.Colors.primary)
@@ -1537,7 +1563,7 @@ struct GoalsSummarySection: View {
             }
         }
         .padding(18)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(16)
     }
 }
@@ -1628,12 +1654,12 @@ struct RecurringSummarySection: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
+                        HStack {
                 Text("Recurring")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(Color(uiColor: .label))
                 
-                Spacer()
+                            Spacer()
                 
                 NavigationLink(destination: RecurringView(viewModel: viewModel)) {
                     Text("See All")
@@ -1678,7 +1704,7 @@ struct RecurringSummarySection: View {
                             .foregroundColor(Color(uiColor: .label))
                     }
                     
-                    Spacer()
+                            Spacer()
                     
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("\(activeRecurring.count) active")
@@ -1723,7 +1749,7 @@ struct RecurringSummarySection: View {
             }
         }
         .padding(18)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(16)
     }
 }
@@ -1840,7 +1866,7 @@ struct DailyTipsSection: View {
             }
         }
         .padding(18)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(16)
     }
 }

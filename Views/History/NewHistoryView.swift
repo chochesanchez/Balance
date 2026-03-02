@@ -70,7 +70,11 @@ struct NewHistoryView: View {
         let grouped = Dictionary(grouping: filteredTransactions) { transaction in
             formatDateHeader(transaction.date)
         }
-        return grouped.sorted { $0.key > $1.key }
+        return grouped.sorted { group1, group2 in
+            let date1 = group1.value.first?.date ?? .distantPast
+            let date2 = group2.value.first?.date ?? .distantPast
+            return date1 > date2
+        }
     }
     
     var body: some View {
@@ -161,12 +165,13 @@ struct NewHistoryView: View {
                                     transaction: transaction,
                                     account: viewModel.getAccount(by: transaction.accountId),
                                     category: viewModel.getCategory(by: transaction.categoryId),
-                                    currency: viewModel.appState.selectedCurrency,
-                                    onTap: {
-                                        selectedTransaction = transaction
-                                        showingTransactionDetail = true
-                                    }
+                                    currency: viewModel.appState.selectedCurrency
                                 )
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    selectedTransaction = transaction
+                                    showingTransactionDetail = true
+                                }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button(role: .destructive) {
                                         viewModel.deleteTransaction(transaction)
@@ -353,46 +358,42 @@ struct HistoryTransactionRow: View {
     let account: Account?
     let category: Category?
     let currency: String
-    let onTap: () -> Void
     
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 12) {
-                TransactionIconBadge(category: category, account: account, size: 44)
+        HStack(spacing: 12) {
+            TransactionIconBadge(category: category, account: account, size: 44)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(transaction.title.isEmpty ? (category?.name ?? transaction.type.rawValue) : transaction.title)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(Color(uiColor: .label))
+                    .lineLimit(1)
                 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(transaction.title.isEmpty ? (category?.name ?? transaction.type.rawValue) : transaction.title)
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(Color(uiColor: .label))
-                        .lineLimit(1)
-                    
-                    HStack(spacing: 4) {
-                        Text(account?.name ?? "")
-                            .foregroundColor(Color(uiColor: .secondaryLabel))
-                        if transaction.recurringId != nil {
-                            Image(systemName: "repeat")
-                                .font(.system(size: 10))
-                                .foregroundColor(Theme.Colors.recurring)
-                        }
+                HStack(spacing: 4) {
+                    Text(account?.name ?? "")
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                    if transaction.recurringId != nil {
+                        Image(systemName: "repeat")
+                            .font(.system(size: 10))
+                            .foregroundColor(Theme.Colors.recurring)
                     }
-                    .font(.system(size: 12))
                 }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(formatAmount)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(amountColor)
-                    
-                    Text(formatTime(transaction.date))
-                        .font(.system(size: 11))
-                        .foregroundColor(Color(uiColor: .tertiaryLabel))
-                }
+                .font(.system(size: 12))
             }
-            .padding(.vertical, 4)
+            
+            Spacer()
+            
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(formatAmount)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(amountColor)
+                
+                Text(formatTime(transaction.date))
+                    .font(.system(size: 11))
+                    .foregroundColor(Color(uiColor: .tertiaryLabel))
+            }
         }
-        .buttonStyle(PlainButtonStyle())
+        .padding(.vertical, 4)
     }
     
     private var amountColor: Color {
@@ -567,7 +568,7 @@ struct TransactionDetailView: View {
                 .padding(Theme.Spacing.md)
             }
         }
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(14)
         .padding(.horizontal, 16)
     }
@@ -608,7 +609,7 @@ struct TransactionDetailView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 14)
             }
-            .background(Color(uiColor: .systemBackground))
+            .background(Color(uiColor: .secondarySystemGroupedBackground))
             .cornerRadius(14)
             .padding(.horizontal, 16)
             
@@ -623,7 +624,7 @@ struct TransactionDetailView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
             }
-            .background(Color(uiColor: .systemBackground))
+            .background(Color(uiColor: .secondarySystemGroupedBackground))
             .cornerRadius(14)
             .padding(.horizontal, 16)
             
@@ -966,7 +967,7 @@ struct ImprovedDatePickerSheet: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 24)
             }
-            .background(Color(uiColor: .systemBackground))
+            .background(Color(uiColor: .secondarySystemGroupedBackground))
             .navigationTitle("Select Date")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1122,5 +1123,11 @@ private func formatDateHeader(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter.string(from: date)
+    }
+}
+
+#Preview {
+    NavigationStack {
+        NewHistoryView(viewModel: BalanceViewModel())
     }
 }

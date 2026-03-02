@@ -2,7 +2,13 @@ import SwiftUI
 
 struct MainTabView: View {
     @ObservedObject var viewModel: BalanceViewModel
-    @State private var selectedTab = 0
+    @StateObject private var navState = NavigationState.shared
+    @State private var selectedTab: Int
+    
+    init(viewModel: BalanceViewModel) {
+        self.viewModel = viewModel
+        self._selectedTab = State(initialValue: viewModel.appState.defaultTab)
+    }
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -47,6 +53,12 @@ struct MainTabView: View {
             .tag(4)
         }
         .tint(Theme.Colors.primary)
+        .onChange(of: navState.pendingTab) { _, newTab in
+            if let tab = newTab {
+                selectedTab = tab
+                navState.pendingTab = nil
+            }
+        }
     }
 }
 

@@ -476,19 +476,31 @@ struct AppState: Codable {
     var notificationsEnabled: Bool
     var preferredTimeRange: TimeRange
     var weeklySpendingLimit: Double
+    var recurringReminders: Bool
+    var goalReminders: Bool
+    var weeklySummary: Bool
+    var defaultTab: Int
     
     init(
         hasCompletedOnboarding: Bool = false,
         selectedCurrency: String = "USD",
         notificationsEnabled: Bool = true,
         preferredTimeRange: TimeRange = .monthly,
-        weeklySpendingLimit: Double = 0
+        weeklySpendingLimit: Double = 0,
+        recurringReminders: Bool = true,
+        goalReminders: Bool = true,
+        weeklySummary: Bool = false,
+        defaultTab: Int = 0
     ) {
         self.hasCompletedOnboarding = hasCompletedOnboarding
         self.selectedCurrency = selectedCurrency
         self.notificationsEnabled = notificationsEnabled
         self.preferredTimeRange = preferredTimeRange
         self.weeklySpendingLimit = weeklySpendingLimit
+        self.recurringReminders = recurringReminders
+        self.goalReminders = goalReminders
+        self.weeklySummary = weeklySummary
+        self.defaultTab = defaultTab
     }
     
     init(from decoder: Decoder) throws {
@@ -498,6 +510,10 @@ struct AppState: Codable {
         notificationsEnabled = try container.decode(Bool.self, forKey: .notificationsEnabled)
         preferredTimeRange = try container.decode(TimeRange.self, forKey: .preferredTimeRange)
         weeklySpendingLimit = try container.decodeIfPresent(Double.self, forKey: .weeklySpendingLimit) ?? 0
+        recurringReminders = try container.decodeIfPresent(Bool.self, forKey: .recurringReminders) ?? true
+        goalReminders = try container.decodeIfPresent(Bool.self, forKey: .goalReminders) ?? true
+        weeklySummary = try container.decodeIfPresent(Bool.self, forKey: .weeklySummary) ?? false
+        defaultTab = try container.decodeIfPresent(Int.self, forKey: .defaultTab) ?? 0
     }
 }
 

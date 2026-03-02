@@ -54,9 +54,8 @@ class BalanceViewModel: ObservableObject {
     // MARK: - Computed Properties
     
     var totalBalance: Double {
-        accounts.reduce(0) { total, account in
-            total + balanceForAccount(account)
-        }
+        let accountsTotal = accounts.reduce(0) { $0 + balanceForAccount($1) }
+        return accountsTotal + totalEnvelopeBalance
     }
     
     var monthlyIncome: Double {
