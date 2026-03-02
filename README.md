@@ -1,4 +1,4 @@
-# Balance - Personal Finance for Students
+# Balance - Personal Finance Companion for Students & Youth
 
 <div align="center">
 
