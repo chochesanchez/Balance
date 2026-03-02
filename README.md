@@ -13,9 +13,6 @@
 [![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg)](https://swift.org/)
 [![Platform](https://img.shields.io/badge/Platform-iOS%2017.0+-blue.svg)](https://developer.apple.com/ios/)
 [![SwiftUI](https://img.shields.io/badge/SwiftUI-Native-green.svg)](https://developer.apple.com/xcode/swiftui/)
-[![License](https://img.shields.io/badge/License-MIT-lightgrey.svg)](LICENSE)
-
-[Features](#features) · [Demo](#demo) · [Screenshots](#screenshots) · [Installation](#installation) · [Architecture](#architecture) · [Contributing](#contributing)
 
 </div>
 
@@ -33,7 +30,7 @@ This project was developed for the **WWDC25 Swift Student Challenge** and was se
 
 <video src="Images/Simulator%20Screen%20Recording%20-%20iPhone%2017%20Pro%20-%202026-03-01%20at%2021.43.34.mov" controls width="100%" style="max-width: 400px; border-radius: 12px; margin: 0 auto;"></video>
 
-*Balance in action — Home, Record, History, Wallet, and More*
+*Balance in action — Oboarding*
 
 ---
 
@@ -274,12 +271,6 @@ Balance includes a comprehensive 7-step onboarding:
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
 ---
 
 ## Author
@@ -297,19 +288,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - Apple for SwiftUI and the Swift Student Challenge
 - The Swift community for inspiration and resources
 - Financial education resources that informed the app's tips and insights
-
----
-
-## License
-
-This project is available under the MIT License. See the [LICENSE](LICENSE) file for more info.
-
----
-
-<div align="center">
-
-**Made to Change, by Choche Sanchez.**
-
-*Balance — Helping students master their finances, one transaction at a time.*
-
-</div>
