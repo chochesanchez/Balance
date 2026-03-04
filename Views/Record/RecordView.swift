@@ -6,7 +6,8 @@ struct RecordView: View {
     @Environment(\.dismiss) private var dismiss
     
     var initialType: TransactionType?
-    
+    var initialIsRecurring: Bool
+
     @State private var amount = ""
     @State private var selectedType: TransactionType?
     @State private var selectedAccountId: UUID?
@@ -26,10 +27,12 @@ struct RecordView: View {
     @State private var hasEndDate = false
     @State private var notifyDaysBefore = 1
     
-    init(viewModel: BalanceViewModel, initialType: TransactionType? = nil) {
+    init(viewModel: BalanceViewModel, initialType: TransactionType? = nil, initialIsRecurring: Bool = false) {
         self.viewModel = viewModel
         self.initialType = initialType
+        self.initialIsRecurring = initialIsRecurring
         _selectedType = State(initialValue: initialType)
+        _isRecurring = State(initialValue: initialIsRecurring)
     }
     
     var body: some View {
@@ -83,15 +86,17 @@ struct RecordView: View {
                     
                     Button(action: recordTransaction) {
                         Text(buttonLabel)
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(Theme.Typography.headline)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 54)
                             .background(isValid ? Theme.Colors.primary : Theme.Colors.primary.opacity(0.3))
-                            .cornerRadius(14)
+                            .cornerRadius(Theme.CornerRadius.large)
                     }
                     .disabled(!isValid)
-                    .padding(.top, 4)
+                    .accessibilityLabel(buttonLabel)
+                    .accessibilityHint(isValid ? "Tap to save" : "Enter amount and select account first")
+                    .padding(.top, Theme.Spacing.xxs)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -130,22 +135,43 @@ struct RecordView: View {
     }
     
     // MARK: - Helpers
-    
+
+    /// Locale-aware amount parsing with max-value guard.
+    private var parsedAmount: Double? {
+        let cleaned = amount.trimmingCharacters(in: .whitespaces)
+        guard !cleaned.isEmpty else { return nil }
+
+        // Try current locale's decimal separator first (handles "10,50" in European locales)
+        let localeFormatter = NumberFormatter()
+        localeFormatter.numberStyle = .decimal
+        localeFormatter.locale = Locale.current
+        if let value = localeFormatter.number(from: cleaned)?.doubleValue,
+           value > 0, value <= 999_999_999 {
+            return value
+        }
+
+        // Fallback: simple comma→dot swap for US-style input
+        let swapped = cleaned.replacingOccurrences(of: ",", with: ".")
+        if let value = Double(swapped), value > 0, value <= 999_999_999 {
+            return value
+        }
+        return nil
+    }
+
     private var buttonLabel: String {
         if isRecurring { return "Create Recurring" }
         guard let type = selectedType else { return "Record" }
         return "Record \(type.rawValue)"
     }
-    
+
     private var isValid: Bool {
-        guard let val = Double(amount.replacingOccurrences(of: ",", with: ".")),
-              val > 0, selectedAccountId != nil, selectedType != nil else { return false }
+        guard parsedAmount != nil, selectedAccountId != nil, selectedType != nil else { return false }
         if selectedType == .transfer { return toAccountId != nil && toAccountId != selectedAccountId }
         return true
     }
-    
+
     private func recordTransaction() {
-        guard let val = Double(amount.replacingOccurrences(of: ",", with: ".")),
+        guard let val = parsedAmount,
               let accountId = selectedAccountId,
               let type = selectedType else { return }
         

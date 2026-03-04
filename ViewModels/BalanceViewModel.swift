@@ -17,6 +17,9 @@ class BalanceViewModel: ObservableObject {
     @Published var recurringTransactions: [RecurringTransaction] = []
     @Published var userProfile: UserProfile = UserProfile()
     @Published var appState: AppState = AppState()
+
+    /// Cached weekly balance history — updated automatically after any transaction change.
+    @Published private(set) var weeklyHistory: [(weekLabel: String, endDate: Date, balance: Double)] = []
     
     // MARK: - Private Properties
     private let defaults = UserDefaults.standard
@@ -234,19 +237,22 @@ class BalanceViewModel: ObservableObject {
     func addTransaction(_ transaction: Transaction) {
         transactions.append(transaction)
         saveTransactions()
+        refreshWeeklyHistory()
         Haptics.success()
     }
-    
+
     func updateTransaction(_ transaction: Transaction) {
         if let index = transactions.firstIndex(where: { $0.id == transaction.id }) {
             transactions[index] = transaction
             saveTransactions()
+            refreshWeeklyHistory()
         }
     }
-    
+
     func deleteTransaction(_ transaction: Transaction) {
         transactions.removeAll { $0.id == transaction.id }
         saveTransactions()
+        refreshWeeklyHistory()
     }
     
     func transactionsForAccount(_ account: Account) -> [Transaction] {
@@ -339,9 +345,9 @@ class BalanceViewModel: ObservableObject {
     // MARK: - Notification Functions
     
     func requestNotificationPermission() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
-            DispatchQueue.main.async {
-                self.appState.notificationsEnabled = granted
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { [weak self] granted, _ in
+            Task { @MainActor [weak self] in
+                self?.appState.notificationsEnabled = granted
             }
         }
     }
@@ -443,19 +449,26 @@ class BalanceViewModel: ObservableObject {
     }
     
     // MARK: - Weekly Balance History
-    
+
+    /// Recomputes the cached `weeklyHistory`. Call after any transaction or account mutation.
+    func refreshWeeklyHistory() {
+        weeklyHistory = weeklyBalanceHistory()
+    }
+
     func weeklyBalanceHistory(weeks: Int = 8) -> [(weekLabel: String, endDate: Date, balance: Double)] {
         let cal = Calendar.current
         var result: [(weekLabel: String, endDate: Date, balance: Double)] = []
-        
+
         let totalInitialBalance = accounts.reduce(0.0) { $0 + $1.initialBalance }
-        
+        let df = DateFormatter()  // created once outside the loop
+        df.dateFormat = "MMM d"
+
         for i in (0..<weeks).reversed() {
             guard let weekStart = cal.date(byAdding: .weekOfYear, value: -i, to: Date()),
                   let weekInterval = cal.dateInterval(of: .weekOfYear, for: weekStart) else { continue }
-            
+
             let weekEnd = weekInterval.end
-            
+
             let transactionsUpToWeekEnd = transactions.filter { $0.date < weekEnd }
             let netTransactions = transactionsUpToWeekEnd.reduce(0.0) { total, tx in
                 switch tx.type {
@@ -464,16 +477,13 @@ class BalanceViewModel: ObservableObject {
                 case .transfer: return total
                 }
             }
-            
+
             let balance = totalInitialBalance + netTransactions
-            
-            let df = DateFormatter()
-            df.dateFormat = "MMM d"
             let label = i == 0 ? "Now" : df.string(from: weekInterval.start)
-            
+
             result.append((weekLabel: label, endDate: weekEnd, balance: balance))
         }
-        
+
         return result
     }
     
@@ -974,6 +984,7 @@ class BalanceViewModel: ObservableObject {
         loadRecurring()
         loadUserProfile()
         loadAppState()
+        refreshWeeklyHistory()
     }
     
     private func loadAccounts() {
@@ -1077,7 +1088,7 @@ class BalanceViewModel: ObservableObject {
         recurringTransactions = []
         userProfile = UserProfile()
         appState = AppState()
-        
+
         saveAccounts()
         saveCategories()
         saveTransactions()
@@ -1085,5 +1096,6 @@ class BalanceViewModel: ObservableObject {
         saveRecurring()
         saveUserProfile()
         saveAppState()
+        refreshWeeklyHistory()
     }
 }
