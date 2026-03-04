@@ -190,25 +190,17 @@ struct RecordView: View {
             
             VStack(spacing: 16) {
                 ZStack {
-                    Circle().fill(Theme.Colors.income.opacity(0.12)).frame(width: 100, height: 100)
-                    Circle().fill(Theme.Colors.income.opacity(0.18)).frame(width: 76, height: 76)
+                    Circle().fill(Color.blue.opacity(0.12)).frame(width: 100, height: 100)
+                    Circle().fill(Color.blue.opacity(0.18)).frame(width: 76, height: 76)
                     Image(systemName: isRecurring ? "repeat.circle.fill" : "checkmark.circle.fill")
                         .font(.system(size: 48))
-                        .foregroundStyle(Theme.Colors.income)
+                        .foregroundStyle(.blue)
                         .symbolEffect(.bounce.up.byLayer, value: showingSuccess)
                 }
                 
-                VStack(spacing: 4) {
-                    Text(isRecurring ? "Recurring Created" : "Transaction Recorded")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(Color(uiColor: .label))
-                    
-                    if let val = Double(amount.replacingOccurrences(of: ",", with: ".")) {
-                        Text(formatCurrency(val, currency: viewModel.appState.selectedCurrency))
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
-                            .foregroundColor(Theme.Colors.income)
-                    }
-                }
+                Text(isRecurring ? "Recurring Created" : "Transaction Recorded")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(Color(uiColor: .label))
             }
             .padding(32)
             .background(.ultraThinMaterial)
@@ -234,7 +226,7 @@ struct AmountInputSection: View {
                     .font(.system(size: 38, weight: .bold, design: .rounded))
                     .foregroundColor(Color(uiColor: .label).opacity(amount.isEmpty ? 0.25 : 1))
                 
-                ZStack {
+                ZStack(alignment: .leading) {
                     if amount.isEmpty {
                         Text("0")
                             .font(.system(size: 48, weight: .bold, design: .rounded))

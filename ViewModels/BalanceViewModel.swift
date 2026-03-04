@@ -270,6 +270,18 @@ class BalanceViewModel: ObservableObject {
         recurringTransactions.append(recurring)
         saveRecurring()
         scheduleNotification(for: recurring)
+        
+        let transaction = Transaction(
+            amount: recurring.amount,
+            type: recurring.type,
+            accountId: recurring.accountId,
+            categoryId: recurring.categoryId,
+            title: recurring.title,
+            note: recurring.note,
+            date: recurring.startDate,
+            recurringId: recurring.id
+        )
+        addTransaction(transaction)
     }
     
     func updateRecurring(_ recurring: RecurringTransaction) {
@@ -386,7 +398,7 @@ class BalanceViewModel: ObservableObject {
         saveGoals()
     }
     
-    func contributeToGoal(_ goal: Goal, amount: Double) {
+    func contributeToGoal(_ goal: Goal, amount: Double, fromAccountId: UUID? = nil) {
         if let index = goals.firstIndex(where: { $0.id == goal.id }) {
             var updated = goal
             updated.currentAmount += amount
@@ -396,6 +408,23 @@ class BalanceViewModel: ObservableObject {
             }
             goals[index] = updated
             saveGoals()
+            
+            if let accountId = fromAccountId, abs(amount) > 0 {
+                let isWithdraw = amount < 0
+                let typeName = goal.goalType == .envelope ? "Savings Pot" : "Goal"
+                let title = isWithdraw
+                    ? "Withdraw from \(goal.title)"
+                    : "Add to \(goal.title)"
+                let transaction = Transaction(
+                    amount: abs(amount),
+                    type: isWithdraw ? .income : .expense,
+                    accountId: accountId,
+                    title: title,
+                    note: "\(typeName) contribution",
+                    goalId: goal.id
+                )
+                addTransaction(transaction)
+            }
         }
     }
     
@@ -474,6 +503,74 @@ class BalanceViewModel: ObservableObject {
     
     func saveData() {
         saveAppState()
+    }
+    
+    // MARK: - Daily Spending Data (for Charts)
+    
+    func dailySpending(for range: TimeRange, referenceDate: Date = Date()) -> [(date: Date, income: Double, expense: Double)] {
+        guard let interval = range.dateInterval(for: referenceDate) else { return [] }
+        let cal = Calendar.current
+        let rangeTransactions = transactions.filter { $0.date >= interval.start && $0.date < interval.end }
+        
+        var dailyData: [Date: (income: Double, expense: Double)] = [:]
+        var current = interval.start
+        while current < interval.end {
+            let dayStart = cal.startOfDay(for: current)
+            dailyData[dayStart] = (0, 0)
+            guard let next = cal.date(byAdding: .day, value: 1, to: current) else { break }
+            current = next
+        }
+        
+        for tx in rangeTransactions {
+            let dayStart = cal.startOfDay(for: tx.date)
+            let existing = dailyData[dayStart] ?? (0, 0)
+            if tx.type == .income {
+                dailyData[dayStart] = (existing.income + tx.amount, existing.expense)
+            } else if tx.type == .expense {
+                dailyData[dayStart] = (existing.income, existing.expense + tx.amount)
+            }
+        }
+        
+        return dailyData.sorted { $0.key < $1.key }.map { ($0.key, $0.value.income, $0.value.expense) }
+    }
+    
+    func incomeByCategory(for month: Date = Date()) -> [(category: Category, amount: Double, percentage: Double)] {
+        let cal = Calendar.current
+        let startOfMonth = cal.date(from: cal.dateComponents([.year, .month], from: month)) ?? month
+        let endOfMonth = cal.date(byAdding: .month, value: 1, to: startOfMonth) ?? month
+        
+        let monthIncome = transactions.filter {
+            $0.type == .income && $0.date >= startOfMonth && $0.date < endOfMonth
+        }
+        
+        let totalIncome = monthIncome.reduce(0) { $0 + $1.amount }
+        guard totalIncome > 0 else { return [] }
+        
+        let grouped = Dictionary(grouping: monthIncome) { $0.categoryId }
+        
+        return grouped.compactMap { catId, txs in
+            guard let category = categories.first(where: { $0.id == catId }) else { return nil }
+            let amount = txs.reduce(0) { $0 + $1.amount }
+            return (category: category, amount: amount, percentage: (amount / totalIncome) * 100)
+        }.sorted { $0.amount > $1.amount }
+    }
+    
+    var largestExpense: Transaction? {
+        currentRangeTransactions.filter { $0.type == .expense }.max(by: { $0.amount < $1.amount })
+    }
+    
+    var averageTransactionAmount: Double {
+        let expenses = currentRangeTransactions.filter { $0.type == .expense }
+        guard !expenses.isEmpty else { return 0 }
+        return expenses.reduce(0) { $0 + $1.amount } / Double(expenses.count)
+    }
+    
+    var mostActiveDay: String? {
+        let cal = Calendar.current
+        let grouped = Dictionary(grouping: currentRangeTransactions) { cal.component(.weekday, from: $0.date) }
+        guard let mostActive = grouped.max(by: { $0.value.count < $1.value.count }) else { return nil }
+        let formatter = DateFormatter()
+        return formatter.weekdaySymbols[mostActive.key - 1]
     }
     
     // MARK: - Analytics

@@ -719,7 +719,7 @@ struct SavingsPotsSummarySection: View {
             NavigationStack {
                 QuickAddPotSheet(viewModel: viewModel)
             }
-            .presentationDetents([.height(420)])
+            .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
     }
@@ -767,6 +767,7 @@ struct PotContributeSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var amountText = ""
     @State private var isWithdraw = false
+    @State private var selectedAccountId: UUID?
     @FocusState private var isFocused: Bool
     
     private var currencySymbol: String {
@@ -777,7 +778,7 @@ struct PotContributeSheet: View {
     }
     
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             HStack(spacing: 12) {
                 Image(systemName: pot.icon)
                     .font(.system(size: 20))
@@ -786,7 +787,7 @@ struct PotContributeSheet: View {
                     .background(pot.colorValue.opacity(0.12))
                     .clipShape(Circle())
                 
-            VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(pot.title)
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(Color(uiColor: .label))
@@ -794,9 +795,9 @@ struct PotContributeSheet: View {
                     Text("Balance: \(formatCurrency(pot.currentAmount, currency: viewModel.appState.selectedCurrency))")
                         .font(.system(size: 13))
                         .foregroundColor(Color(uiColor: .secondaryLabel))
-            }
-            
-            Spacer()
+                }
+                
+                Spacer()
             }
             .padding(.top, 8)
             
@@ -826,6 +827,38 @@ struct PotContributeSheet: View {
             .background(Color(uiColor: .tertiarySystemFill))
             .clipShape(Capsule())
             
+            // Source account picker
+            VStack(alignment: .leading, spacing: 8) {
+                Text(isWithdraw ? "RETURN TO" : "FROM ACCOUNT")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Color(uiColor: .secondaryLabel))
+                
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(viewModel.accounts) { account in
+                            let isSelected = selectedAccountId == account.id
+                            Button(action: { withAnimation(.snappy) { selectedAccountId = account.id }; Haptics.selection() }) {
+                                VStack(spacing: 4) {
+                                    Image(systemName: account.icon)
+                                        .font(.system(size: 16))
+                                        .foregroundColor(isSelected ? .white : Color(hex: account.color))
+                                        .frame(width: 36, height: 36)
+                                        .background(isSelected ? Color(hex: account.color) : Color(hex: account.color).opacity(0.12))
+                                        .clipShape(Circle())
+                                    
+                                    Text(account.name)
+                                        .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                                        .foregroundColor(isSelected ? Color(uiColor: .label) : Color(uiColor: .secondaryLabel))
+                                        .lineLimit(1)
+                                }
+                                .frame(width: 64)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            
             HStack(spacing: 4) {
                 Text(currencySymbol)
                     .font(.system(size: 34, weight: .bold, design: .rounded))
@@ -848,19 +881,28 @@ struct PotContributeSheet: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(isWithdraw ? Theme.Colors.expense : Theme.Colors.income)
+                    .background(canSave ? (isWithdraw ? Theme.Colors.expense : Theme.Colors.income) : Color(uiColor: .systemGray3))
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
+            .disabled(!canSave)
             .padding(.bottom, 8)
         }
         .padding(.horizontal, 20)
-        .onAppear { isFocused = true }
+        .onAppear {
+            isFocused = true
+            selectedAccountId = viewModel.accounts.first?.id
+        }
+    }
+    
+    private var canSave: Bool {
+        guard let value = Double(amountText), value > 0, selectedAccountId != nil else { return false }
+        return true
     }
     
     private func save() {
         guard let value = Double(amountText), value > 0 else { return }
         let amount = isWithdraw ? -value : value
-        viewModel.contributeToGoal(pot, amount: amount)
+        viewModel.contributeToGoal(pot, amount: amount, fromAccountId: selectedAccountId)
         Haptics.success()
         dismiss()
     }
@@ -872,83 +914,93 @@ struct QuickAddPotSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var selectedIcon = "banknote.fill"
-    @State private var selectedColor = "#007AFF"
+    @State private var selectedColorIndex = 13
     
-    private let icons = ["banknote.fill", "chart.line.uptrend.xyaxis", "heart.fill", "graduationcap.fill", "airplane", "house.fill", "gift.fill", "leaf.fill"]
-    private let colors = ["#007AFF", "#34C759", "#FF9500", "#AF52DE", "#FF2D55", "#5856D6", "#00C7BE", "#FFCC00"]
+    private let potIcons = [
+        "banknote.fill", "chart.line.uptrend.xyaxis", "heart.fill", "graduationcap.fill",
+        "airplane", "house.fill", "gift.fill", "leaf.fill",
+        "star.fill", "target", "car.fill", "laptopcomputer",
+        "suitcase.fill", "bag.fill", "creditcard.fill", "wallet.pass.fill",
+        "dog.fill", "pawprint.fill", "dumbbell.fill", "camera.fill",
+        "crown.fill", "sparkles", "bolt.fill", "moon.fill",
+    ]
     
     var body: some View {
-        VStack(spacing: 20) {
-            Text("New Savings Pot")
-                .font(.system(size: 18, weight: .semibold))
-            
-            // Preview
-            VStack(spacing: 6) {
-                Image(systemName: selectedIcon)
-                    .font(.system(size: 24))
-                    .foregroundColor(Color(hex: selectedColor))
-                    .frame(width: 52, height: 52)
-                    .background(Color(hex: selectedColor).opacity(0.12))
-                    .clipShape(Circle())
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 16) {
+                // Preview
+                VStack(spacing: 6) {
+                    Image(systemName: selectedIcon)
+                        .font(.system(size: 22))
+                        .foregroundColor(Theme.Colors.categoryColors[selectedColorIndex])
+                        .frame(width: 48, height: 48)
+                        .background(Theme.Colors.categoryColors[selectedColorIndex].opacity(0.12))
+                        .clipShape(Circle())
+                    
+                    Text(name.isEmpty ? "Pot Name" : name)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(name.isEmpty ? Color(uiColor: .tertiaryLabel) : Color(uiColor: .label))
+                }
+                .padding(.top, 4)
                 
-                Text(name.isEmpty ? "Pot Name" : name)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(name.isEmpty ? Color(uiColor: .tertiaryLabel) : Color(uiColor: .label))
-            }
-            
-            TextField("Name (e.g., Savings, Investment)", text: $name)
-                .font(.system(size: 15))
-                .padding(12)
-                .background(Color(uiColor: .tertiarySystemFill))
-                .cornerRadius(10)
-            
-            // Icon picker
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(icons, id: \.self) { icon in
-                        Button(action: { selectedIcon = icon }) {
-                            Image(systemName: icon)
-                                .font(.system(size: 16))
-                                .foregroundColor(selectedIcon == icon ? .white : Color(uiColor: .label))
-                                .frame(width: 38, height: 38)
-                                .background(selectedIcon == icon ? Color(hex: selectedColor) : Color(uiColor: .tertiarySystemFill))
-                                .clipShape(Circle())
+                TextField("Name (e.g., Savings, Investment)", text: $name)
+                    .font(.system(size: 15))
+                    .padding(12)
+                    .background(Color(uiColor: .tertiarySystemFill))
+                    .cornerRadius(10)
+                
+                // Icon picker
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("ICON")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                    
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 8) {
+                        ForEach(Array(potIcons.prefix(12)), id: \.self) { icon in
+                            IconPickerItem(
+                                icon: icon,
+                                color: Theme.Colors.categoryColors[selectedColorIndex],
+                                isSelected: selectedIcon == icon,
+                                action: { selectedIcon = icon; Haptics.selection() }
+                            )
                         }
                     }
                 }
-            }
-            
-            // Color picker
-            HStack(spacing: 10) {
-                ForEach(colors, id: \.self) { color in
-                    Button(action: { selectedColor = color }) {
-                        Circle()
-                            .fill(Color(hex: color))
-                            .frame(width: 30, height: 30)
-                            .overlay(
-                                Circle().stroke(Color.white, lineWidth: selectedColor == color ? 3 : 0)
+                
+                // Color picker
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("COLOR")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                    
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 8) {
+                        ForEach(0..<min(16, Theme.Colors.categoryColors.count), id: \.self) { index in
+                            ColorPickerItem(
+                                color: Theme.Colors.categoryColors[index],
+                                isSelected: selectedColorIndex == index,
+                                action: { selectedColorIndex = index; Haptics.selection() }
                             )
-                            .overlay(
-                                Circle().stroke(Color(hex: color), lineWidth: selectedColor == color ? 1 : 0).padding(2)
-                            )
+                        }
                     }
                 }
+                
+                Button(action: createPot) {
+                    Text("Create Pot")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(name.isEmpty ? Color(uiColor: .systemGray3) : Theme.Colors.primary)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .disabled(name.isEmpty)
+                .padding(.top, 4)
             }
-            
-            Spacer()
-            
-            Button(action: createPot) {
-                Text("Create Pot")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(name.isEmpty ? Color(uiColor: .systemGray3) : Theme.Colors.primary)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-            .disabled(name.isEmpty)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
         }
-        .padding(20)
+        .navigationTitle("New Savings Pot")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Cancel") { dismiss() }
@@ -958,10 +1010,11 @@ struct QuickAddPotSheet: View {
     }
     
     private func createPot() {
+        let colorHex = Theme.Colors.categoryColors[selectedColorIndex].toHex() ?? "#007AFF"
         let pot = Goal(
             title: name,
             icon: selectedIcon,
-            color: selectedColor,
+            color: colorHex,
             goalType: .envelope
         )
         viewModel.addGoal(pot)

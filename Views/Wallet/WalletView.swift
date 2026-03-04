@@ -289,7 +289,7 @@ struct AccountRowView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(Color(uiColor: .label))
                 
-                Text(account.type.rawValue)
+                    Text(account.type.rawValue)
                     .font(.system(size: 12))
                     .foregroundColor(Color(uiColor: .secondaryLabel))
             }
@@ -343,19 +343,19 @@ struct CategoriesListView: View {
             } else {
                 VStack(spacing: 20) {
                     if !filteredExpenseCategories.isEmpty {
-                        CategorySection(
+                CategorySection(
                             title: "Expense",
-                            categories: filteredExpenseCategories,
-                            viewModel: viewModel
-                        )
+                    categories: filteredExpenseCategories,
+                    viewModel: viewModel
+                )
                     }
-                    
+                
                     if !filteredIncomeCategories.isEmpty {
-                        CategorySection(
+                CategorySection(
                             title: "Income",
-                            categories: filteredIncomeCategories,
-                            viewModel: viewModel
-                        )
+                    categories: filteredIncomeCategories,
+                    viewModel: viewModel
+                )
                     }
                     
                     if filteredExpenseCategories.isEmpty && filteredIncomeCategories.isEmpty {
@@ -404,9 +404,9 @@ struct CategorySection: View {
             }
             .padding(.horizontal, 20)
             
-            VStack(spacing: 0) {
+                VStack(spacing: 0) {
                 ForEach(Array(categories.enumerated()), id: \.element.id) { index, category in
-                    NavigationLink(destination: CategoryMetricsView(viewModel: viewModel, category: category)) {
+                        NavigationLink(destination: CategoryMetricsView(viewModel: viewModel, category: category)) {
                         CategoryRowView(category: category, viewModel: viewModel)
                     }
                     
@@ -436,9 +436,9 @@ struct CategoryRowView: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: category.icon)
+                Image(systemName: category.icon)
                 .font(.system(size: 16))
-                .foregroundColor(category.colorValue)
+                    .foregroundColor(category.colorValue)
                 .frame(width: 36, height: 36)
                 .background(category.colorValue.opacity(0.12))
                 .clipShape(Circle())
@@ -543,28 +543,28 @@ struct CategoryMetricsView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 16) {
-                // Header
+            // Header
                 VStack(spacing: 10) {
-                    ZStack {
-                        Circle()
+                        ZStack {
+                            Circle()
                             .fill(category.colorValue.opacity(0.12))
                             .frame(width: 72, height: 72)
-                        
-                        Image(systemName: category.icon)
+                            
+                            Image(systemName: category.icon)
                             .font(.system(size: 30))
-                            .foregroundColor(category.colorValue)
-                    }
-                    
-                    Text(category.name)
+                                .foregroundColor(category.colorValue)
+                        }
+                        
+                        Text(category.name)
                         .font(.system(size: 22, weight: .bold))
                         .foregroundColor(Color(uiColor: .label))
-                    
-                    Text(category.type.rawValue)
+                        
+                        Text(category.type.rawValue)
                         .font(.system(size: 13))
                         .foregroundColor(Color(uiColor: .secondaryLabel))
-                    
-                    if let note = category.note, !note.isEmpty {
-                        Text(note)
+                        
+                        if let note = category.note, !note.isEmpty {
+                            Text(note)
                             .font(.system(size: 12))
                             .foregroundColor(Color(uiColor: .tertiaryLabel))
                     }
@@ -606,7 +606,7 @@ struct CategoryMetricsView: View {
                 .cornerRadius(16)
                 
                 // Budget Status
-                if let status = budgetStatus, category.budget != nil {
+            if let status = budgetStatus, category.budget != nil {
                     let budget = category.budget ?? 0
                     let spent = viewModel.spendingForCategory(category)
                     
@@ -667,29 +667,29 @@ struct CategoryMetricsView: View {
                     
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                         WalletStatCard(
-                            icon: "number.circle.fill",
-                            title: "Transactions",
-                            value: "\(stats.transactionCount)",
+                    icon: "number.circle.fill",
+                    title: "Transactions",
+                    value: "\(stats.transactionCount)",
                             color: category.colorValue
-                        )
-                        
+                )
+                
                         WalletStatCard(
-                            icon: "percent",
-                            title: "% of Total",
-                            value: String(format: "%.0f%%", stats.percentOfTotal * 100),
-                            color: Theme.Colors.primary
-                        )
-                        
+                    icon: "percent",
+                    title: "% of Total",
+                    value: String(format: "%.0f%%", stats.percentOfTotal * 100),
+                    color: Theme.Colors.primary
+                )
+                
                         WalletStatCard(
-                            icon: "chart.bar.fill",
+                    icon: "chart.bar.fill",
                             title: "Monthly Avg",
                             value: formatCompactAmount(monthlyAverage, currency: viewModel.appState.selectedCurrency),
                             color: Theme.Colors.recurring
-                        )
-                        
-                        if stats.transactionCount > 0 {
+                )
+                
+                if stats.transactionCount > 0 {
                             WalletStatCard(
-                                icon: "divide.circle.fill",
+                        icon: "divide.circle.fill",
                                 title: "Avg / Transaction",
                                 value: formatCompactAmount(stats.averageTransaction, currency: viewModel.appState.selectedCurrency),
                                 color: Theme.Colors.transfer
@@ -707,13 +707,13 @@ struct CategoryMetricsView: View {
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(Color(uiColor: .label))
                     
-                    if periodTransactions.isEmpty {
-                        Text("No transactions in this period")
+                if periodTransactions.isEmpty {
+                    Text("No transactions in this period")
                             .font(.system(size: 13))
                             .foregroundColor(Color(uiColor: .tertiaryLabel))
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.vertical, 16)
-                    } else {
+                } else {
                         VStack(spacing: 0) {
                             ForEach(Array(periodTransactions.prefix(10).enumerated()), id: \.element.id) { index, tx in
                                 HStack(spacing: 12) {
@@ -724,8 +724,8 @@ struct CategoryMetricsView: View {
                                         Text(formatDate(tx.date))
                                             .font(.system(size: 11))
                                             .foregroundColor(Color(uiColor: .tertiaryLabel))
-                                    }
-                                    Spacer()
+                            }
+                            Spacer()
                                     Text(formatCurrency(tx.amount, currency: viewModel.appState.selectedCurrency))
                                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                                         .foregroundColor(category.type == .expense ? Theme.Colors.expense : Theme.Colors.income)
@@ -976,9 +976,9 @@ struct AccountDetailView: View {
                                             .font(.system(size: 11))
                                             .foregroundColor(Color(uiColor: .tertiaryLabel))
                                     }
-                                    
-                                    Spacer()
-                                    
+            
+            Spacer()
+            
                                     Text("\(tx.type == .expense ? "-" : "+")\(formatCurrency(tx.amount, currency: viewModel.appState.selectedCurrency))")
                                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                                         .foregroundColor(tx.type == .expense ? Theme.Colors.expense : Theme.Colors.income)
@@ -1103,7 +1103,7 @@ struct AddAccountView: View {
                     
                     VStack(spacing: 0) {
                         FormRow(label: "Name") {
-                            TextField("Account Name", text: $name)
+                    TextField("Account Name", text: $name)
                                 .font(.system(size: 15))
                                 .multilineTextAlignment(.trailing)
                         }
@@ -1115,11 +1115,11 @@ struct AddAccountView: View {
                                 .font(.system(size: 15))
                                 .foregroundColor(Color(uiColor: .label))
                             Spacer()
-                            Picker("Type", selection: $selectedType) {
-                                ForEach(AccountType.allCases, id: \.self) { type in
-                                    Text(type.rawValue).tag(type)
-                                }
-                            }
+                    Picker("Type", selection: $selectedType) {
+                        ForEach(AccountType.allCases, id: \.self) { type in
+                            Text(type.rawValue).tag(type)
+                        }
+                    }
                             .labelsHidden()
                             .tint(Color(uiColor: .secondaryLabel))
                         }
@@ -1131,7 +1131,7 @@ struct AddAccountView: View {
                         FormRow(label: "Balance") {
                             TextField("0.00", text: $initialBalance)
                                 .font(.system(size: 15))
-                                .keyboardType(.decimalPad)
+                            .keyboardType(.decimalPad)
                                 .multilineTextAlignment(.trailing)
                             
                             Button(action: { showingCurrencyPicker = true }) {
@@ -1160,29 +1160,29 @@ struct AddAccountView: View {
                     
                     PickerSection(title: "Icon") {
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
-                            ForEach(accountIcons, id: \.self) { icon in
-                                IconPickerItem(
-                                    icon: icon,
-                                    color: Theme.Colors.categoryColors[selectedColorIndex],
-                                    isSelected: selectedIcon == icon,
+                        ForEach(accountIcons, id: \.self) { icon in
+                            IconPickerItem(
+                                icon: icon,
+                                color: Theme.Colors.categoryColors[selectedColorIndex],
+                                isSelected: selectedIcon == icon,
                                     action: { selectedIcon = icon; Haptics.selection() }
-                                )
-                            }
-                        }
-                    }
-                    
-                    PickerSection(title: "Color") {
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 10) {
-                            ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
-                                ColorPickerItem(
-                                    color: Theme.Colors.categoryColors[index],
-                                    isSelected: selectedColorIndex == index,
-                                    action: { selectedColorIndex = index; Haptics.selection() }
-                                )
-                            }
+                            )
                         }
                     }
                 }
+                
+                    PickerSection(title: "Color") {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 10) {
+                        ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
+                            ColorPickerItem(
+                                color: Theme.Colors.categoryColors[index],
+                                isSelected: selectedColorIndex == index,
+                                    action: { selectedColorIndex = index; Haptics.selection() }
+                            )
+                        }
+                    }
+                }
+            }
                 .padding(.top, 8)
                 .padding(.bottom, 32)
             }
@@ -1299,7 +1299,7 @@ struct AddCategoryView: View {
                     
                     VStack(spacing: 0) {
                         FormRow(label: "Name") {
-                            TextField("Category Name", text: $name)
+                    TextField("Category Name", text: $name)
                                 .font(.system(size: 15))
                                 .multilineTextAlignment(.trailing)
                         }
@@ -1311,7 +1311,7 @@ struct AddCategoryView: View {
                                 .font(.system(size: 15))
                                 .foregroundColor(Color(uiColor: .label))
                             Spacer()
-                            Picker("Type", selection: $selectedType) {
+                    Picker("Type", selection: $selectedType) {
                                 ForEach(CategoryType.allCases, id: \.self) { type in
                                     Text(type.rawValue).tag(type)
                                 }
@@ -1352,10 +1352,10 @@ struct AddCategoryView: View {
                         let visibleIcons = showAllIcons ? categoryIcons : Array(categoryIcons.prefix(24))
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
                             ForEach(visibleIcons, id: \.self) { icon in
-                                IconPickerItem(
-                                    icon: icon,
-                                    color: Theme.Colors.categoryColors[selectedColorIndex],
-                                    isSelected: selectedIcon == icon,
+                            IconPickerItem(
+                                icon: icon,
+                                color: Theme.Colors.categoryColors[selectedColorIndex],
+                                isSelected: selectedIcon == icon,
                                     action: { selectedIcon = icon; Haptics.selection() }
                                 )
                             }
@@ -1380,16 +1380,16 @@ struct AddCategoryView: View {
                     // Color
                     PickerSection(title: "Color") {
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 10) {
-                            ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
-                                ColorPickerItem(
-                                    color: Theme.Colors.categoryColors[index],
-                                    isSelected: selectedColorIndex == index,
+                        ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
+                            ColorPickerItem(
+                                color: Theme.Colors.categoryColors[index],
+                                isSelected: selectedColorIndex == index,
                                     action: { selectedColorIndex = index; Haptics.selection() }
-                                )
-                            }
+                            )
                         }
                     }
                 }
+            }
                 .padding(.top, 8)
                 .padding(.bottom, 32)
             }
@@ -1518,7 +1518,7 @@ struct EditCategoryView: View {
                 // Details
                 VStack(spacing: 0) {
                     FormRow(label: "Name") {
-                        TextField("Category Name", text: $name)
+                TextField("Category Name", text: $name)
                             .font(.system(size: 15))
                             .multilineTextAlignment(.trailing)
                     }
@@ -1553,10 +1553,10 @@ struct EditCategoryView: View {
                     let visibleIcons = showAllIcons ? categoryIcons : Array(categoryIcons.prefix(24))
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
                         ForEach(visibleIcons, id: \.self) { icon in
-                            IconPickerItem(
-                                icon: icon,
-                                color: Theme.Colors.categoryColors[selectedColorIndex],
-                                isSelected: selectedIcon == icon,
+                        IconPickerItem(
+                            icon: icon,
+                            color: Theme.Colors.categoryColors[selectedColorIndex],
+                            isSelected: selectedIcon == icon,
                                 action: { selectedIcon = icon; Haptics.selection() }
                             )
                         }
@@ -1581,17 +1581,17 @@ struct EditCategoryView: View {
                 // Color
                 PickerSection(title: "Color") {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 10) {
-                        ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
-                            ColorPickerItem(
-                                color: Theme.Colors.categoryColors[index],
-                                isSelected: selectedColorIndex == index,
+                    ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
+                        ColorPickerItem(
+                            color: Theme.Colors.categoryColors[index],
+                            isSelected: selectedColorIndex == index,
                                 action: { selectedColorIndex = index; Haptics.selection() }
-                            )
-                        }
+                        )
                     }
                 }
-                
-                if !category.isSystem {
+            }
+            
+            if !category.isSystem {
                     Button(role: .destructive, action: {
                         viewModel.deleteCategory(category)
                         dismiss()
@@ -1700,7 +1700,7 @@ struct EditAccountView: View {
                 // Details
                 VStack(spacing: 0) {
                     FormRow(label: "Name") {
-                        TextField("Account Name", text: $name)
+                TextField("Account Name", text: $name)
                             .font(.system(size: 15))
                             .multilineTextAlignment(.trailing)
                     }
@@ -1712,11 +1712,11 @@ struct EditAccountView: View {
                             .font(.system(size: 15))
                             .foregroundColor(Color(uiColor: .label))
                         Spacer()
-                        Picker("Type", selection: $selectedType) {
-                            ForEach(AccountType.allCases, id: \.self) { type in
-                                Text(type.rawValue).tag(type)
-                            }
-                        }
+                Picker("Type", selection: $selectedType) {
+                    ForEach(AccountType.allCases, id: \.self) { type in
+                        Text(type.rawValue).tag(type)
+                    }
+                }
                         .labelsHidden()
                         .tint(Color(uiColor: .secondaryLabel))
                     }
@@ -1738,31 +1738,31 @@ struct EditAccountView: View {
                 
                 PickerSection(title: "Icon") {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
-                        ForEach(accountIcons, id: \.self) { icon in
-                            IconPickerItem(
-                                icon: icon,
-                                color: Theme.Colors.categoryColors[selectedColorIndex],
-                                isSelected: selectedIcon == icon,
+                    ForEach(accountIcons, id: \.self) { icon in
+                        IconPickerItem(
+                            icon: icon,
+                            color: Theme.Colors.categoryColors[selectedColorIndex],
+                            isSelected: selectedIcon == icon,
                                 action: { selectedIcon = icon; Haptics.selection() }
-                            )
-                        }
+                        )
                     }
                 }
-                
+            }
+            
                 // Color
                 PickerSection(title: "Color") {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 10) {
-                        ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
-                            ColorPickerItem(
-                                color: Theme.Colors.categoryColors[index],
-                                isSelected: selectedColorIndex == index,
+                    ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
+                        ColorPickerItem(
+                            color: Theme.Colors.categoryColors[index],
+                            isSelected: selectedColorIndex == index,
                                 action: { selectedColorIndex = index; Haptics.selection() }
-                            )
-                        }
+                        )
                     }
                 }
-                
-                if viewModel.accounts.count > 1 {
+            }
+            
+            if viewModel.accounts.count > 1 {
                     Button(role: .destructive, action: {
                         viewModel.deleteAccount(account)
                         dismiss()
@@ -1807,7 +1807,7 @@ struct EditAccountView: View {
 
 // MARK: - Reusable Components
 
-private struct FormRow<Content: View>: View {
+struct FormRow<Content: View>: View {
     let label: String
     @ViewBuilder let content: Content
     
@@ -1824,7 +1824,7 @@ private struct FormRow<Content: View>: View {
     }
 }
 
-private struct PickerSection<Content: View>: View {
+struct PickerSection<Content: View>: View {
     let title: String
     @ViewBuilder let content: Content
     

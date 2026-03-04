@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import Charts
 
 // MARK: - More View
 struct MoreView: View {
@@ -29,24 +30,24 @@ struct MoreView: View {
             
             // Features
             Section("Features") {
-                NavigationLink(destination: RecurringView(viewModel: viewModel)) {
-                    RecurringBadgeRow(viewModel: viewModel)
-                }
-                
                 NavigationLink(destination: AnalyticsView(viewModel: viewModel)) {
-                    MoreRowView(icon: "chart.bar.fill", title: "Analytics", color: Theme.Colors.primary)
-                }
-                
-                NavigationLink(destination: GoalsListView(viewModel: viewModel)) {
-                    MoreRowView(icon: "target", title: "Goals", color: Theme.Colors.goals)
+                    MoreRowView(icon: "chart.bar.fill", title: "Analytics", color: Color(hex: "AF52DE"))
                 }
                 
                 NavigationLink(destination: FinancialHealthView(viewModel: viewModel)) {
                     MoreRowView(icon: "heart.fill", title: "Financial Health", color: Theme.Colors.expense)
                 }
                 
+                NavigationLink(destination: GoalsListView(viewModel: viewModel)) {
+                    MoreRowView(icon: "target", title: "Goals", color: Theme.Colors.goals)
+                }
+                
+                NavigationLink(destination: RecurringView(viewModel: viewModel)) {
+                    RecurringBadgeRow(viewModel: viewModel)
+                }
+                
                 NavigationLink(destination: TipsView()) {
-                    MoreRowView(icon: "lightbulb.max.fill", title: "Tips & Guides", color: Color(hex: "FFCC00"))
+                    MoreRowView(icon: "lightbulb.max.fill", title: "Tips & Guides", color: Theme.Colors.primary)
                 }
             }
             
@@ -463,141 +464,336 @@ struct AnalyticsView: View {
     @ObservedObject var viewModel: BalanceViewModel
     @State private var selectedTimeRange: TimeRange = .monthly
     
+    private var dailyData: [(date: Date, income: Double, expense: Double)] {
+        viewModel.dailySpending(for: selectedTimeRange)
+    }
+    
+    private var daysInRange: Double {
+        switch selectedTimeRange {
+        case .daily: return 1
+        case .weekly: return 7
+        case .monthly: return 30
+        case .yearly: return 365
+        }
+    }
+    
+    private var incomeChange: Double { viewModel.incomeDeltaPercent * 100 }
+    private var expenseChange: Double { viewModel.expenseDeltaPercent * 100 }
+    
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 16) {
                 TimeScopeSelector(selected: $selectedTimeRange, showAllOptions: true)
                     .padding(.horizontal, 16)
                 
-                // Overview
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("\(selectedTimeRange.shortTitle) Overview")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(Color(uiColor: .label))
-                    
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                        AnalyticsStatCard(
-                            icon: "arrow.down.circle.fill",
-                            title: "Income",
-                            value: formatCurrency(viewModel.currentRangeIncome, currency: viewModel.appState.selectedCurrency),
-                            color: Theme.Colors.income
-                        )
-                        
-                        AnalyticsStatCard(
-                            icon: "arrow.up.circle.fill",
-                            title: "Expenses",
-                            value: formatCurrency(viewModel.currentRangeExpenses, currency: viewModel.appState.selectedCurrency),
-                            color: Theme.Colors.expense
-                        )
-                        
-                        AnalyticsStatCard(
-                            icon: "banknote.fill",
-                            title: "Net Savings",
-                            value: formatCurrency(viewModel.currentRangeNet, currency: viewModel.appState.selectedCurrency),
-                            color: viewModel.currentRangeNet >= 0 ? Theme.Colors.income : Theme.Colors.expense
-                        )
-                        
-                        AnalyticsStatCard(
-                            icon: "percent",
-                            title: "Savings Rate",
-                            value: String(format: "%.0f%%", max(0, viewModel.savingsRate)),
-                            color: viewModel.savingsRate >= 20 ? Theme.Colors.income : Theme.Colors.recurring
-                        )
-                    }
-                }
-                .padding(16)
-                .background(Color(uiColor: .secondarySystemGroupedBackground))
-                .cornerRadius(16)
-                .padding(.horizontal, 16)
-                
-                // Daily Averages
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Daily Averages")
-                        .font(.system(size: 15, weight: .semibold))
-                    
-                    HStack {
-                        DailyAverageItem(
-                            title: "Income",
-                            value: formatCurrency(viewModel.currentRangeIncome / 30, currency: viewModel.appState.selectedCurrency),
-                            color: Theme.Colors.income
-                        )
-                        
-                        DailyAverageItem(
-                            title: "Expenses",
-                            value: formatCurrency(viewModel.currentRangeExpenses / 30, currency: viewModel.appState.selectedCurrency),
-                            color: Theme.Colors.expense
-                        )
-                    }
-                }
-                .padding(16)
-                .background(Color(uiColor: .secondarySystemGroupedBackground))
-                .cornerRadius(14)
-                .padding(.horizontal, 16)
-                
-                // Spending by Category
-                if !viewModel.spendingByCategory().isEmpty {
-                    VStack(alignment: .leading, spacing: 14) {
-                        HStack {
-                            Text("Spending by Category")
-                                .font(.system(size: 15, weight: .semibold))
-                            Spacer()
-                            Text("\(viewModel.spendingByCategory().count) categories")
-                                .font(.system(size: 12))
-                                .foregroundColor(Color(uiColor: .secondaryLabel))
-                        }
-                        
-                        ForEach(viewModel.spendingByCategory().prefix(8), id: \.category.id) { item in
-                            CategorySpendingRow(
-                                category: item.category,
-                                amount: item.amount,
-                                percentage: item.percentage,
-                                currency: viewModel.appState.selectedCurrency
-                            )
-                        }
-                    }
-                    .padding(16)
-                    .background(Color(uiColor: .secondarySystemGroupedBackground))
-                    .cornerRadius(14)
-                    .padding(.horizontal, 16)
-                }
-                
-                // Transaction Activity
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Transaction Activity")
-                        .font(.system(size: 15, weight: .semibold))
-                    
-                    HStack(spacing: 16) {
-                        TransactionCountItem(
-                            count: viewModel.currentRangeTransactions.filter { $0.type == .income }.count,
-                            label: "Income",
-                            icon: "arrow.down.circle.fill",
-                            color: Theme.Colors.income
-                        )
-                        
-                        TransactionCountItem(
-                            count: viewModel.currentRangeTransactions.filter { $0.type == .expense }.count,
-                            label: "Expenses",
-                            icon: "arrow.up.circle.fill",
-                            color: Theme.Colors.expense
-                        )
-                        
-                        TransactionCountItem(
-                            count: viewModel.currentRangeTransactions.filter { $0.type == .transfer }.count,
-                            label: "Transfers",
-                            icon: "arrow.left.arrow.right.circle.fill",
-                            color: Theme.Colors.transfer
-                        )
-                    }
-                }
-                .padding(16)
-                .background(Color(uiColor: .secondarySystemGroupedBackground))
-                .cornerRadius(14)
-                .padding(.horizontal, 16)
+                analyticsOverviewSection
+                analyticsChartsSection
+                analyticsKeyMetricsSection
+                analyticsCategoriesSection
+                analyticsActivitySection
+                analyticsInsightsSection
             }
             .padding(.vertical, 16)
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("Analytics")
+    }
+    
+    @ViewBuilder
+    private var analyticsOverviewSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("\(selectedTimeRange.shortTitle) Overview")
+                .font(.system(size: 15, weight: .semibold))
+            
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                AnalyticsStatCard(icon: "arrow.down.circle.fill", title: "Income", value: formatCurrency(viewModel.currentRangeIncome, currency: viewModel.appState.selectedCurrency), color: Theme.Colors.income, delta: incomeChange)
+                AnalyticsStatCard(icon: "arrow.up.circle.fill", title: "Expenses", value: formatCurrency(viewModel.currentRangeExpenses, currency: viewModel.appState.selectedCurrency), color: Theme.Colors.expense, delta: expenseChange)
+                AnalyticsStatCard(icon: "banknote.fill", title: "Net Savings", value: formatCurrency(viewModel.currentRangeNet, currency: viewModel.appState.selectedCurrency), color: viewModel.currentRangeNet >= 0 ? Theme.Colors.income : Theme.Colors.expense)
+                AnalyticsStatCard(icon: "percent", title: "Savings Rate", value: String(format: "%.0f%%", max(0, viewModel.savingsRate)), color: viewModel.savingsRate >= 20 ? Theme.Colors.income : Theme.Colors.recurring)
+            }
+        }
+        .padding(16)
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .cornerRadius(16)
+        .padding(.horizontal, 16)
+    }
+    
+    @ViewBuilder
+    private var analyticsChartsSection: some View {
+        if dailyData.count > 1 {
+            AnalyticsIncomeExpenseChart(dailyData: dailyData, currency: viewModel.appState.selectedCurrency)
+                .padding(.horizontal, 16)
+            
+            AnalyticsCumulativeChart(dailyData: dailyData, currency: viewModel.appState.selectedCurrency)
+                .padding(.horizontal, 16)
+        }
+    }
+    
+    @ViewBuilder
+    private var analyticsKeyMetricsSection: some View {
+        let currency = viewModel.appState.selectedCurrency
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Key Metrics")
+                .font(.system(size: 15, weight: .semibold))
+            
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                MetricMiniCard(label: "Daily Avg", value: formatCurrency(viewModel.currentRangeExpenses / max(1, daysInRange), currency: currency), icon: "calendar", color: Theme.Colors.expense)
+                MetricMiniCard(label: "Avg / Txn", value: formatCurrency(viewModel.averageTransactionAmount, currency: currency), icon: "divide.circle.fill", color: Theme.Colors.primary)
+                MetricMiniCard(label: "Most Active", value: viewModel.mostActiveDay ?? "—", icon: "flame.fill", color: Theme.Colors.recurring)
+            }
+            
+            if let largest = viewModel.largestExpense {
+                HStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(Theme.Colors.recurring)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Largest Expense").font(.system(size: 12)).foregroundColor(Color(uiColor: .secondaryLabel))
+                        Text("\(largest.title.isEmpty ? "Untitled" : largest.title) — \(formatCurrency(largest.amount, currency: currency))")
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    Spacer()
+                }
+                .padding(12)
+                .background(Theme.Colors.recurring.opacity(0.06))
+                .cornerRadius(10)
+            }
+        }
+        .padding(16)
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .cornerRadius(16)
+        .padding(.horizontal, 16)
+    }
+    
+    @ViewBuilder
+    private var analyticsCategoriesSection: some View {
+        let spending = viewModel.spendingByCategory()
+        let income = viewModel.incomeByCategory()
+        let currency = viewModel.appState.selectedCurrency
+        
+        if !spending.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("Spending by Category").font(.system(size: 15, weight: .semibold))
+                    Spacer()
+                    Text("\(spending.count) categories").font(.system(size: 12)).foregroundColor(Color(uiColor: .secondaryLabel))
+                }
+                
+                GeometryReader { geo in
+                    HStack(spacing: 2) {
+                        ForEach(spending.prefix(6), id: \.category.id) { item in
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(item.category.colorValue)
+                                .frame(width: max(4, geo.size.width * CGFloat(item.percentage / 100)))
+                        }
+                    }
+                }
+                .frame(height: 10)
+                
+                ForEach(spending.prefix(8), id: \.category.id) { item in
+                    CategorySpendingRow(category: item.category, amount: item.amount, percentage: item.percentage, currency: currency)
+                }
+            }
+            .padding(16)
+            .background(Color(uiColor: .secondarySystemGroupedBackground))
+            .cornerRadius(14)
+            .padding(.horizontal, 16)
+        }
+        
+        if !income.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Income by Category").font(.system(size: 15, weight: .semibold))
+                ForEach(income.prefix(6), id: \.category.id) { item in
+                    CategorySpendingRow(category: item.category, amount: item.amount, percentage: item.percentage, currency: currency)
+                }
+            }
+            .padding(16)
+            .background(Color(uiColor: .secondarySystemGroupedBackground))
+            .cornerRadius(14)
+            .padding(.horizontal, 16)
+        }
+    }
+    
+    @ViewBuilder
+    private var analyticsActivitySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Transaction Activity").font(.system(size: 15, weight: .semibold))
+            HStack(spacing: 16) {
+                TransactionCountItem(count: viewModel.currentRangeTransactions.filter { $0.type == .income }.count, label: "Income", icon: "arrow.down.circle.fill", color: Theme.Colors.income)
+                TransactionCountItem(count: viewModel.currentRangeTransactions.filter { $0.type == .expense }.count, label: "Expenses", icon: "arrow.up.circle.fill", color: Theme.Colors.expense)
+                TransactionCountItem(count: viewModel.currentRangeTransactions.filter { $0.type == .transfer }.count, label: "Transfers", icon: "arrow.left.arrow.right.circle.fill", color: Theme.Colors.transfer)
+            }
+        }
+        .padding(16)
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .cornerRadius(14)
+        .padding(.horizontal, 16)
+    }
+    
+    @ViewBuilder
+    private var analyticsInsightsSection: some View {
+        let insights = generateInsights()
+        if !insights.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 6) {
+                    Image(systemName: "lightbulb.fill").font(.system(size: 14)).foregroundColor(Color(hex: "AF52DE"))
+                    Text("Smart Insights").font(.system(size: 15, weight: .semibold))
+                }
+                ForEach(insights, id: \.text) { insight in
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: insight.icon).font(.system(size: 14)).foregroundColor(insight.color).frame(width: 24)
+                        Text(insight.text).font(.system(size: 13)).foregroundColor(Color(uiColor: .secondaryLabel))
+                    }
+                    .padding(12)
+                    .background(insight.color.opacity(0.05))
+                    .cornerRadius(10)
+                }
+            }
+            .padding(16)
+            .background(Color(uiColor: .secondarySystemGroupedBackground))
+            .cornerRadius(16)
+            .padding(.horizontal, 16)
+        }
+    }
+    
+    private struct InsightItem: Hashable {
+        let icon: String
+        let text: String
+        let color: Color
+        
+        static func == (lhs: InsightItem, rhs: InsightItem) -> Bool { lhs.text == rhs.text }
+        func hash(into hasher: inout Hasher) { hasher.combine(text) }
+    }
+    
+    private func generateInsights() -> [InsightItem] {
+        var insights: [InsightItem] = []
+        
+        if viewModel.currentRangeExpenses > viewModel.currentRangeIncome && viewModel.currentRangeIncome > 0 {
+            insights.append(InsightItem(icon: "exclamationmark.triangle.fill", text: "You're spending more than you earn this period. Consider cutting discretionary expenses.", color: Theme.Colors.expense))
+        }
+        
+        if viewModel.savingsRate >= 20 {
+            insights.append(InsightItem(icon: "star.fill", text: "Your savings rate of \(Int(viewModel.savingsRate))% is above the recommended 20%. Keep it up!", color: Theme.Colors.income))
+        } else if viewModel.savingsRate > 0 {
+            let gap = 20 - Int(viewModel.savingsRate)
+            insights.append(InsightItem(icon: "arrow.up.right.circle.fill", text: "Your savings rate is \(Int(viewModel.savingsRate))%. Increasing it by \(gap)% would hit the recommended 20%.", color: Theme.Colors.recurring))
+        }
+        
+        if let top = viewModel.spendingByCategory().first, top.percentage > 40 {
+            insights.append(InsightItem(icon: "chart.pie.fill", text: "\(top.category.name) accounts for \(Int(top.percentage))% of your spending. Consider setting a budget for this category.", color: top.category.colorValue))
+        }
+        
+        if expenseChange > 20 {
+            insights.append(InsightItem(icon: "arrow.up.right", text: "Expenses increased \(Int(expenseChange))% compared to last period.", color: Theme.Colors.expense))
+        } else if expenseChange < -10 {
+            insights.append(InsightItem(icon: "arrow.down.right", text: "Expenses decreased \(Int(abs(expenseChange)))% compared to last period. Good progress!", color: Theme.Colors.income))
+        }
+        
+        return insights
+    }
+}
+
+struct MetricMiniCard: View {
+    let label: String
+    let value: String
+    let icon: String
+    let color: Color
+    
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundColor(color)
+            
+            Text(value)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundColor(Color(uiColor: .label))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundColor(Color(uiColor: .secondaryLabel))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(color.opacity(0.06))
+        .cornerRadius(10)
+    }
+}
+
+struct AnalyticsIncomeExpenseChart: View {
+    let dailyData: [(date: Date, income: Double, expense: Double)]
+    let currency: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Income vs Expenses")
+                .font(.system(size: 15, weight: .semibold))
+            
+            Chart {
+                ForEach(dailyData, id: \.date) { entry in
+                    BarMark(x: .value("Date", entry.date, unit: .day), y: .value("Amount", entry.income))
+                        .foregroundStyle(Theme.Colors.income.gradient)
+                        .cornerRadius(3)
+                    BarMark(x: .value("Date", entry.date, unit: .day), y: .value("Amount", -entry.expense))
+                        .foregroundStyle(Theme.Colors.expense.gradient)
+                        .cornerRadius(3)
+                }
+                RuleMark(y: .value("Zero", 0))
+                    .lineStyle(StrokeStyle(lineWidth: 0.5))
+                    .foregroundStyle(Color(uiColor: .separator))
+            }
+            .frame(height: 180)
+            
+            HStack(spacing: 16) {
+                HStack(spacing: 4) {
+                    Circle().fill(Theme.Colors.income).frame(width: 8, height: 8)
+                    Text("Income").font(.system(size: 11)).foregroundColor(Color(uiColor: .secondaryLabel))
+                }
+                HStack(spacing: 4) {
+                    Circle().fill(Theme.Colors.expense).frame(width: 8, height: 8)
+                    Text("Expenses").font(.system(size: 11)).foregroundColor(Color(uiColor: .secondaryLabel))
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .cornerRadius(16)
+    }
+}
+
+struct AnalyticsCumulativeChart: View {
+    let dailyData: [(date: Date, income: Double, expense: Double)]
+    let currency: String
+    
+    private var cumulativeData: [(date: Date, total: Double)] {
+        var cumulative: Double = 0
+        return dailyData.map { entry in
+            cumulative += entry.expense
+            return (date: entry.date, total: cumulative)
+        }
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Cumulative Spending")
+                .font(.system(size: 15, weight: .semibold))
+            
+            Chart {
+                ForEach(cumulativeData, id: \.date) { entry in
+                    AreaMark(x: .value("Date", entry.date, unit: .day), y: .value("Total", entry.total))
+                        .foregroundStyle(Theme.Colors.expense.opacity(0.15).gradient)
+                    LineMark(x: .value("Date", entry.date, unit: .day), y: .value("Total", entry.total))
+                        .foregroundStyle(Theme.Colors.expense)
+                        .lineStyle(StrokeStyle(lineWidth: 2))
+                }
+            }
+            .frame(height: 140)
+        }
+        .padding(16)
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .cornerRadius(16)
     }
 }
 
@@ -606,6 +802,7 @@ struct AnalyticsStatCard: View {
     let title: String
     let value: String
     let color: Color
+    var delta: Double? = nil
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -621,6 +818,18 @@ struct AnalyticsStatCard: View {
             Text(value)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            
+            if let delta, abs(delta) > 0.5 {
+                HStack(spacing: 2) {
+                    Image(systemName: delta >= 0 ? "arrow.up.right" : "arrow.down.right")
+                        .font(.system(size: 9, weight: .bold))
+                    Text("\(Int(abs(delta)))%")
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .foregroundColor(delta >= 0 ? (title == "Expenses" ? Theme.Colors.expense : Theme.Colors.income) : (title == "Expenses" ? Theme.Colors.income : Theme.Colors.expense))
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
@@ -1121,16 +1330,17 @@ struct GoalContributeSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var amount = ""
     @State private var isWithdraw = false
+    @State private var selectedAccountId: UUID?
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
+            VStack(spacing: 20) {
                 ZStack {
                     Circle()
                         .fill(goal.colorValue.opacity(0.12))
-                        .frame(width: 60, height: 60)
+                        .frame(width: 56, height: 56)
                     Image(systemName: goal.icon)
-                        .font(.system(size: 26))
+                        .font(.system(size: 24))
                         .foregroundColor(goal.colorValue)
                 }
                 
@@ -1141,13 +1351,46 @@ struct GoalContributeSheet: View {
                     .font(.system(size: 28, weight: .bold, design: .rounded))
                     .foregroundColor(goal.colorValue)
                 
-                // Toggle add/withdraw
                 Picker("", selection: $isWithdraw) {
                     Text("Add").tag(false)
                     Text("Withdraw").tag(true)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal, 40)
+                
+                // Source account picker
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(isWithdraw ? "RETURN TO" : "FROM ACCOUNT")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                        .padding(.horizontal, 20)
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(viewModel.accounts) { account in
+                                let isSelected = selectedAccountId == account.id
+                                Button(action: { withAnimation(.snappy) { selectedAccountId = account.id }; Haptics.selection() }) {
+                                    VStack(spacing: 4) {
+                                        Image(systemName: account.icon)
+                                            .font(.system(size: 16))
+                                            .foregroundColor(isSelected ? .white : Color(hex: account.color))
+                                            .frame(width: 36, height: 36)
+                                            .background(isSelected ? Color(hex: account.color) : Color(hex: account.color).opacity(0.12))
+                                            .clipShape(Circle())
+                                        
+                                        Text(account.name)
+                                            .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                                            .foregroundColor(isSelected ? Color(uiColor: .label) : Color(uiColor: .secondaryLabel))
+                                            .lineLimit(1)
+                                    }
+                                    .frame(width: 64)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                    }
+                }
                 
                 HStack(spacing: 4) {
                     Text("$")
@@ -1170,14 +1413,14 @@ struct GoalContributeSheet: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 54)
-                        .background(Double(amount) != nil && Double(amount)! > 0 ? goal.colorValue : goal.colorValue.opacity(0.3))
+                        .background(canContribute ? goal.colorValue : goal.colorValue.opacity(0.3))
                         .cornerRadius(14)
                 }
-                .disabled(Double(amount) == nil || Double(amount)! <= 0)
+                .disabled(!canContribute)
                 .padding(.horizontal, 20)
             }
-            .padding(.top, 24)
-            .padding(.bottom, 24)
+            .padding(.top, 20)
+            .padding(.bottom, 20)
             .navigationTitle(isWithdraw ? "Withdraw" : "Add Money")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1185,15 +1428,23 @@ struct GoalContributeSheet: View {
                     Button("Cancel") { dismiss() }
                 }
             }
+            .onAppear {
+                selectedAccountId = viewModel.accounts.first?.id
+            }
         }
-        .presentationDetents([.height(420)])
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+    
+    private var canContribute: Bool {
+        guard let value = Double(amount), value > 0, selectedAccountId != nil else { return false }
+        return true
     }
     
     private func contribute() {
         guard let value = Double(amount), value > 0 else { return }
         let adjustedAmount = isWithdraw ? -value : value
-        viewModel.contributeToGoal(goal, amount: adjustedAmount)
+        viewModel.contributeToGoal(goal, amount: adjustedAmount, fromAccountId: selectedAccountId)
         Haptics.success()
         dismiss()
     }
@@ -1211,8 +1462,22 @@ struct EditGoalView: View {
     @State private var deadline: Date
     @State private var selectedIcon: String
     @State private var selectedColorIndex: Int
+    @State private var showAllIcons = false
     
-    private let goalIcons = ["star.fill", "target", "banknote.fill", "chart.line.uptrend.xyaxis", "heart.fill", "graduationcap.fill", "airplane", "house.fill", "gift.fill", "leaf.fill", "car.fill", "laptopcomputer"]
+    private let goalIcons = [
+        "star.fill", "target", "banknote.fill", "chart.line.uptrend.xyaxis",
+        "heart.fill", "graduationcap.fill", "airplane", "house.fill",
+        "gift.fill", "leaf.fill", "car.fill", "laptopcomputer",
+        "suitcase.fill", "map.fill", "globe.americas.fill", "bed.double.fill",
+        "fork.knife", "cart.fill", "bag.fill", "tshirt.fill",
+        "dumbbell.fill", "figure.run", "pawprint.fill", "dog.fill",
+        "cat.fill", "camera.fill", "music.note", "gamecontroller.fill",
+        "book.fill", "paintbrush.fill", "wrench.fill", "hammer.fill",
+        "briefcase.fill", "building.columns.fill", "creditcard.fill", "wallet.pass.fill",
+        "phone.fill", "tv.fill", "bicycle", "bus.fill",
+        "crown.fill", "sparkles", "bolt.fill", "flame.fill",
+        "tree.fill", "mountain.2.fill", "sun.max.fill", "moon.fill",
+    ]
     
     init(viewModel: BalanceViewModel, goal: Goal) {
         self.viewModel = viewModel
@@ -1235,57 +1500,126 @@ struct EditGoalView: View {
     
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Details") {
-                    TextField("Title", text: $title)
+            ScrollView {
+                VStack(spacing: 16) {
+                    // Preview
+                    VStack(spacing: 10) {
+                        ZStack {
+                            Circle()
+                                .fill(Theme.Colors.categoryColors[selectedColorIndex].opacity(0.12))
+                                .frame(width: 56, height: 56)
+                            Image(systemName: selectedIcon)
+                                .font(.system(size: 24))
+                                .foregroundColor(Theme.Colors.categoryColors[selectedColorIndex])
+                        }
+                        Text(title.isEmpty ? (goal.goalType == .envelope ? "Pot Name" : "Goal Name") : title)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(title.isEmpty ? Color(uiColor: .tertiaryLabel) : Color(uiColor: .label))
+                        
+                        Text(goal.goalType == .envelope ? "Savings Pot" : "Goal")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color(uiColor: .secondaryLabel))
+                    }
+                    .padding(.vertical, 16)
+                    
+                    // Details
+                    VStack(spacing: 0) {
+                        FormRow(label: "Title") {
+                            TextField("Title", text: $title)
+                                .font(.system(size: 15))
+                                .multilineTextAlignment(.trailing)
+                        }
+                        
+                        if goal.goalType == .goal {
+                            Divider().padding(.leading, 16)
+                            
+                            FormRow(label: "Target") {
+                                HStack(spacing: 4) {
+                                    Text("$")
+                                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                                    TextField("Target Amount", text: $targetAmount)
+                                        .keyboardType(.decimalPad)
+                                        .font(.system(size: 15))
+                                        .multilineTextAlignment(.trailing)
+                                }
+                            }
+                        }
+                    }
+                    .background(Color(uiColor: .secondarySystemGroupedBackground))
+                    .cornerRadius(14)
+                    .padding(.horizontal, 16)
                     
                     if goal.goalType == .goal {
-                        HStack {
-                            Text("$")
-                                .foregroundColor(Color(uiColor: .secondaryLabel))
-                            TextField("Target Amount", text: $targetAmount)
-                                .keyboardType(.decimalPad)
-                        }
-                    }
-                }
-                
-                if goal.goalType == .goal {
-                    Section("Deadline") {
-                        Toggle("Set Deadline", isOn: $hasDeadline)
-                        if hasDeadline {
-                            DatePicker("Deadline", selection: $deadline, in: Date()..., displayedComponents: .date)
-                        }
-                    }
-                }
-                
-                Section("Icon") {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
-                        ForEach(goalIcons, id: \.self) { icon in
-                            Button(action: { selectedIcon = icon }) {
-                                Image(systemName: icon)
-                                    .font(.system(size: 18))
-                                    .foregroundColor(selectedIcon == icon ? .white : Color(uiColor: .label))
-                                    .frame(width: 40, height: 40)
-                                    .background(selectedIcon == icon ? Theme.Colors.categoryColors[selectedColorIndex] : Color(uiColor: .tertiarySystemFill))
-                                    .clipShape(Circle())
+                        VStack(spacing: 0) {
+                            HStack {
+                                Text("Set Deadline")
+                                    .font(.system(size: 15))
+                                Spacer()
+                                Toggle("", isOn: $hasDeadline)
+                                    .labelsHidden()
                             }
-                            .buttonStyle(.plain)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            
+                            if hasDeadline {
+                                Divider().padding(.leading, 16)
+                                DatePicker("Deadline", selection: $deadline, in: Date()..., displayedComponents: .date)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
+                            }
+                        }
+                        .background(Color(uiColor: .secondarySystemGroupedBackground))
+                        .cornerRadius(14)
+                        .padding(.horizontal, 16)
+                    }
+                    
+                    // Icon
+                    PickerSection(title: "Icon") {
+                        let visibleIcons = showAllIcons ? goalIcons : Array(goalIcons.prefix(24))
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
+                            ForEach(visibleIcons, id: \.self) { icon in
+                                IconPickerItem(
+                                    icon: icon,
+                                    color: Theme.Colors.categoryColors[selectedColorIndex],
+                                    isSelected: selectedIcon == icon,
+                                    action: { selectedIcon = icon; Haptics.selection() }
+                                )
+                            }
+                        }
+                        
+                        if goalIcons.count > 24 {
+                            Button {
+                                withAnimation(.snappy) { showAllIcons.toggle() }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Text(showAllIcons ? "Show Less" : "Show More")
+                                        .font(.system(size: 13, weight: .medium))
+                                    Image(systemName: showAllIcons ? "chevron.up" : "chevron.down")
+                                        .font(.system(size: 10, weight: .semibold))
+                                }
+                                .foregroundColor(Theme.Colors.primary)
+                                .padding(.top, 6)
+                            }
+                        }
+                    }
+                    
+                    // Color
+                    PickerSection(title: "Color") {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 10) {
+                            ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
+                                ColorPickerItem(
+                                    color: Theme.Colors.categoryColors[index],
+                                    isSelected: selectedColorIndex == index,
+                                    action: { selectedColorIndex = index; Haptics.selection() }
+                                )
+                            }
                         }
                     }
                 }
-                
-                Section("Color") {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
-                        ForEach(0..<min(12, Theme.Colors.categoryColors.count), id: \.self) { index in
-                            ColorPickerItem(
-                                color: Theme.Colors.categoryColors[index],
-                                isSelected: selectedColorIndex == index,
-                                action: { selectedColorIndex = index }
-                            )
-                        }
-                    }
-                }
+                .padding(.top, 8)
+                .padding(.bottom, 32)
             }
+            .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("Edit \(goal.goalType == .envelope ? "Pot" : "Goal")")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1389,74 +1723,154 @@ struct AddGoalView: View {
     @State private var deadline = Date().addingTimeInterval(86400 * 30)
     @State private var selectedColorIndex = 0
     @State private var selectedIcon = "star.fill"
+    @State private var showAllIcons = false
     
-    private let potIcons = ["banknote.fill", "chart.line.uptrend.xyaxis", "heart.fill", "graduationcap.fill", "airplane", "house.fill", "gift.fill", "leaf.fill"]
+    private let goalIcons = [
+        "star.fill", "target", "banknote.fill", "chart.line.uptrend.xyaxis",
+        "heart.fill", "graduationcap.fill", "airplane", "house.fill",
+        "gift.fill", "leaf.fill", "car.fill", "laptopcomputer",
+        "suitcase.fill", "map.fill", "globe.americas.fill", "bed.double.fill",
+        "fork.knife", "cart.fill", "bag.fill", "tshirt.fill",
+        "dumbbell.fill", "figure.run", "pawprint.fill", "dog.fill",
+        "cat.fill", "camera.fill", "music.note", "gamecontroller.fill",
+        "book.fill", "paintbrush.fill", "wrench.fill", "hammer.fill",
+        "briefcase.fill", "building.columns.fill", "creditcard.fill", "wallet.pass.fill",
+        "phone.fill", "tv.fill", "bicycle", "bus.fill",
+        "crown.fill", "sparkles", "bolt.fill", "flame.fill",
+        "tree.fill", "mountain.2.fill", "sun.max.fill", "moon.fill",
+    ]
     
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
+            ScrollView {
+                VStack(spacing: 16) {
+                    // Type Picker
                     Picker("Type", selection: $goalType) {
                         ForEach(GoalType.allCases, id: \.self) { type in
                             Text(type.rawValue).tag(type)
                         }
                     }
                     .pickerStyle(.segmented)
-                    .listRowBackground(Color.clear)
-                }
-                
-                Section(goalType == .goal ? "Goal Details" : "Pot Details") {
-                    TextField(goalType == .goal ? "Goal Title" : "Pot Name (e.g., Savings)", text: $title)
+                    .padding(.horizontal, 16)
+                    
+                    // Preview
+                    VStack(spacing: 10) {
+                        ZStack {
+                            Circle()
+                                .fill(Theme.Colors.categoryColors[selectedColorIndex].opacity(0.12))
+                                .frame(width: 56, height: 56)
+                            Image(systemName: selectedIcon)
+                                .font(.system(size: 24))
+                                .foregroundColor(Theme.Colors.categoryColors[selectedColorIndex])
+                        }
+                        Text(title.isEmpty ? (goalType == .envelope ? "Pot Name" : "Goal Name") : title)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(title.isEmpty ? Color(uiColor: .tertiaryLabel) : Color(uiColor: .label))
+                        
+                        Text(goalType == .envelope ? "Savings Pot" : "Goal")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color(uiColor: .secondaryLabel))
+                    }
+                    .padding(.vertical, 16)
+                    
+                    // Details
+                    VStack(spacing: 0) {
+                        FormRow(label: "Name") {
+                            TextField(goalType == .goal ? "Goal Title" : "Pot Name (e.g., Savings)", text: $title)
+                                .font(.system(size: 15))
+                                .multilineTextAlignment(.trailing)
+                        }
+                        
+                        if goalType == .goal {
+                            Divider().padding(.leading, 16)
+                            
+                            FormRow(label: "Target") {
+                                HStack(spacing: 4) {
+                                    Text(currencySymbol)
+                                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                                    TextField("Target Amount", text: $targetAmount)
+                                        .keyboardType(.decimalPad)
+                                        .font(.system(size: 15))
+                                        .multilineTextAlignment(.trailing)
+                                }
+                            }
+                        }
+                    }
+                    .background(Color(uiColor: .secondarySystemGroupedBackground))
+                    .cornerRadius(14)
+                    .padding(.horizontal, 16)
                     
                     if goalType == .goal {
-                        HStack {
-                            Text(currencySymbol)
-                            TextField("Target Amount", text: $targetAmount)
-                                .keyboardType(.decimalPad)
+                        VStack(spacing: 0) {
+                            HStack {
+                                Text("Set Deadline")
+                                    .font(.system(size: 15))
+                                Spacer()
+                                Toggle("", isOn: $hasDeadline)
+                                    .labelsHidden()
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            
+                            if hasDeadline {
+                                Divider().padding(.leading, 16)
+                                DatePicker("Deadline", selection: $deadline, in: Date()..., displayedComponents: .date)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
+                            }
                         }
+                        .background(Color(uiColor: .secondarySystemGroupedBackground))
+                        .cornerRadius(14)
+                        .padding(.horizontal, 16)
                     }
-                }
-                
-                if goalType == .goal {
-                    Section("Deadline") {
-                        Toggle("Set Deadline", isOn: $hasDeadline)
+                    
+                    // Icon
+                    PickerSection(title: "Icon") {
+                        let visibleIcons = showAllIcons ? goalIcons : Array(goalIcons.prefix(24))
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
+                            ForEach(visibleIcons, id: \.self) { icon in
+                                IconPickerItem(
+                                    icon: icon,
+                                    color: Theme.Colors.categoryColors[selectedColorIndex],
+                                    isSelected: selectedIcon == icon,
+                                    action: { selectedIcon = icon; Haptics.selection() }
+                                )
+                            }
+                        }
                         
-                        if hasDeadline {
-                            DatePicker("Deadline", selection: $deadline, in: Date()..., displayedComponents: .date)
+                        if goalIcons.count > 24 {
+                            Button {
+                                withAnimation(.snappy) { showAllIcons.toggle() }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Text(showAllIcons ? "Show Less" : "Show More")
+                                        .font(.system(size: 13, weight: .medium))
+                                    Image(systemName: showAllIcons ? "chevron.up" : "chevron.down")
+                                        .font(.system(size: 10, weight: .semibold))
+                                }
+                                .foregroundColor(Theme.Colors.primary)
+                                .padding(.top, 6)
+                            }
                         }
                     }
-                }
-                
-                if goalType == .envelope {
-                    Section("Icon") {
+                    
+                    // Color
+                    PickerSection(title: "Color") {
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 10) {
-                            ForEach(potIcons, id: \.self) { icon in
-                                Button(action: { selectedIcon = icon }) {
-                                    Image(systemName: icon)
-                                        .font(.system(size: 16))
-                                        .foregroundColor(selectedIcon == icon ? .white : Color(uiColor: .label))
-                                        .frame(width: 36, height: 36)
-                                        .background(selectedIcon == icon ? Theme.Colors.categoryColors[selectedColorIndex] : Color(uiColor: .tertiarySystemFill))
-                                        .clipShape(Circle())
-                                }
-                                .buttonStyle(.plain)
+                            ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
+                                ColorPickerItem(
+                                    color: Theme.Colors.categoryColors[index],
+                                    isSelected: selectedColorIndex == index,
+                                    action: { selectedColorIndex = index; Haptics.selection() }
+                                )
                             }
                         }
                     }
                 }
-                
-                Section("Color") {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 10) {
-                        ForEach(0..<Theme.Colors.categoryColors.count, id: \.self) { index in
-                            ColorPickerItem(
-                                color: Theme.Colors.categoryColors[index],
-                                isSelected: selectedColorIndex == index,
-                                action: { selectedColorIndex = index }
-                            )
-                        }
-                    }
-                }
+                .padding(.top, 8)
+                .padding(.bottom, 32)
             }
+            .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle(goalType == .goal ? "New Goal" : "New Savings Pot")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1500,140 +1914,281 @@ struct AddGoalView: View {
 struct FinancialHealthView: View {
     @ObservedObject var viewModel: BalanceViewModel
     
+    private var savingsRateScore: Int {
+        if viewModel.savingsRate >= 20 { return 30 }
+        if viewModel.savingsRate >= 10 { return 20 }
+        if viewModel.savingsRate > 0 { return 10 }
+        return 0
+    }
+    
+    private var budgetAdherenceScore: Int {
+        let budgetedCategories = viewModel.categories.filter { ($0.budget ?? 0) > 0 }
+        guard !budgetedCategories.isEmpty else { return 0 }
+        let onBudget = budgetedCategories.filter { cat in
+            let spent = viewModel.spendingForCategory(cat)
+            return spent <= (cat.budget ?? 0)
+        }
+        let ratio = Double(onBudget.count) / Double(budgetedCategories.count)
+        if ratio >= 0.8 { return 15 }
+        if ratio >= 0.5 { return 10 }
+        return 5
+    }
+    
+    private var goalsScore: Int {
+        if viewModel.goals.isEmpty { return 0 }
+        let progressingGoals = viewModel.goals.filter { $0.progress > 0 }
+        if !progressingGoals.isEmpty { return 15 }
+        return 8
+    }
+    
+    private var trackingScore: Int {
+        let txCount = viewModel.transactions.count
+        if txCount >= 50 { return 15 }
+        if txCount >= 20 { return 10 }
+        if txCount > 0 { return 5 }
+        return 0
+    }
+    
+    private var diversificationScore: Int {
+        let accountCount = viewModel.accounts.count
+        if accountCount >= 3 { return 10 }
+        if accountCount >= 2 { return 5 }
+        return 0
+    }
+    
+    private var spendingTrendScore: Int {
+        if viewModel.expenseDeltaPercent < -0.05 { return 15 }
+        if viewModel.expenseDeltaPercent <= 0.05 { return 10 }
+        if viewModel.expenseDeltaPercent <= 0.2 { return 5 }
+        return 0
+    }
+    
     private var healthScore: Int {
-        var score = 50
-        if viewModel.savingsRate >= 20 { score += 30 }
-        else if viewModel.savingsRate >= 10 { score += 20 }
-        else if viewModel.savingsRate > 0 { score += 10 }
-        if !viewModel.goals.isEmpty { score += 10 }
-        if viewModel.transactions.count > 10 { score += 10 }
-        return min(score, 100)
+        min(100, savingsRateScore + budgetAdherenceScore + goalsScore + trackingScore + diversificationScore + spendingTrendScore)
     }
     
     private var healthColor: Color {
         if healthScore >= 80 { return Theme.Colors.income }
-        else if healthScore >= 60 { return Theme.Colors.goals }
-        else if healthScore >= 40 { return Theme.Colors.recurring }
-        else { return Theme.Colors.expense }
+        if healthScore >= 60 { return Theme.Colors.goals }
+        if healthScore >= 40 { return Theme.Colors.recurring }
+        return Theme.Colors.expense
     }
     
     private var healthLabel: String {
         if healthScore >= 80 { return "Excellent" }
-        else if healthScore >= 60 { return "Good" }
-        else if healthScore >= 40 { return "Fair" }
-        else { return "Needs Work" }
+        if healthScore >= 60 { return "Good" }
+        if healthScore >= 40 { return "Fair" }
+        return "Needs Work"
+    }
+    
+    private var scoreHistory: [(label: String, score: Int)] {
+        [
+            ("Savings", savingsRateScore),
+            ("Budget", budgetAdherenceScore),
+            ("Goals", goalsScore),
+            ("Tracking", trackingScore),
+            ("Accounts", diversificationScore),
+            ("Trend", spendingTrendScore)
+        ]
     }
     
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 20) {
-                // Score
-                VStack(spacing: 14) {
-                    ZStack {
-                        Circle()
-                            .stroke(Color(uiColor: .tertiarySystemFill), lineWidth: 14)
-                            .frame(width: 170, height: 170)
-                        
-                        Circle()
-                            .trim(from: 0, to: CGFloat(healthScore) / 100)
-                            .stroke(healthColor, style: StrokeStyle(lineWidth: 14, lineCap: .round))
-                            .frame(width: 170, height: 170)
-                            .rotationEffect(.degrees(-90))
-                            .animation(.spring(response: 0.8), value: healthScore)
-                        
-                        VStack(spacing: 2) {
-                            Text("\(healthScore)")
-                                .font(.system(size: 52, weight: .bold, design: .rounded))
-                                .foregroundColor(healthColor)
-                            Text(healthLabel)
-                                .font(.system(size: 14))
-                                .foregroundColor(Color(uiColor: .secondaryLabel))
-                        }
-                    }
-                    
-                    Text("Your Financial Health Score")
-                        .font(.system(size: 12))
-                        .foregroundColor(Color(uiColor: .tertiaryLabel))
-                }
-                .padding(.top, 20)
-                
-                // Breakdown
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("Score Breakdown")
-                        .font(.system(size: 15, weight: .semibold))
-                    
-                    HealthScoreRow(
-                        icon: "percent",
-                        title: "Savings Rate",
-                        description: "Saving \(Int(max(0, viewModel.savingsRate)))% of income",
-                        score: viewModel.savingsRate >= 20 ? 30 : (viewModel.savingsRate >= 10 ? 20 : (viewModel.savingsRate > 0 ? 10 : 0)),
-                        maxScore: 30,
-                        color: Theme.Colors.income
-                    )
-                    
-                    HealthScoreRow(
-                        icon: "target",
-                        title: "Goals",
-                        description: viewModel.goals.isEmpty ? "No goals set" : "\(viewModel.goals.count) goals active",
-                        score: viewModel.goals.isEmpty ? 0 : 10,
-                        maxScore: 10,
-                        color: Theme.Colors.goals
-                    )
-                    
-                    HealthScoreRow(
-                        icon: "list.clipboard.fill",
-                        title: "Tracking",
-                        description: "\(viewModel.transactions.count) transactions",
-                        score: viewModel.transactions.count > 10 ? 10 : 0,
-                        maxScore: 10,
-                        color: Theme.Colors.primary
-                    )
-                }
-                .padding(16)
-                .background(Color(uiColor: .secondarySystemGroupedBackground))
-                .cornerRadius(16)
-                .padding(.horizontal, 16)
-                
-                // Tips
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("How to Improve")
-                        .font(.system(size: 15, weight: .semibold))
-                    
-                    if viewModel.savingsRate < 20 {
-                        ImprovementTip(icon: "arrow.up.right.circle.fill", title: "Increase Savings", description: "Try to save at least 20% of your income.", color: Theme.Colors.income, action: "Set a budget")
-                    }
-                    
-                    if viewModel.goals.isEmpty {
-                        ImprovementTip(icon: "target", title: "Set Goals", description: "Create savings goals to stay motivated.", color: Theme.Colors.goals, action: "Create goal")
-                    }
-                    
-                    if viewModel.transactions.count < 10 {
-                        ImprovementTip(icon: "plus.circle.fill", title: "Track Everything", description: "Record all transactions for better insights.", color: Theme.Colors.primary, action: "Add transaction")
-                    }
-                    
-                    if healthScore >= 80 {
-                        HStack(spacing: 10) {
-                            Image(systemName: "star.fill")
-                                .foregroundColor(Theme.Colors.goals)
-                            Text("Great job! Keep up the good work!")
-                                .font(.system(size: 14))
-                                .foregroundColor(Color(uiColor: .secondaryLabel))
-                        }
-                        .padding(14)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Theme.Colors.goals.opacity(0.08))
-                        .cornerRadius(12)
-                    }
-                }
-                .padding(16)
-                .background(Color(uiColor: .secondarySystemGroupedBackground))
-                .cornerRadius(16)
-                .padding(.horizontal, 16)
+                healthScoreRing
+                healthChartSection
+                healthBreakdownSection
+                healthAllocationSection
+                healthTipsSection
             }
             .padding(.bottom, 32)
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("Financial Health")
+    }
+    
+    @ViewBuilder
+    private var healthScoreRing: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .stroke(Color(uiColor: .tertiarySystemFill), lineWidth: 14)
+                    .frame(width: 170, height: 170)
+                Circle()
+                    .trim(from: 0, to: CGFloat(healthScore) / 100)
+                    .stroke(healthColor, style: StrokeStyle(lineWidth: 14, lineCap: .round))
+                    .frame(width: 170, height: 170)
+                    .rotationEffect(.degrees(-90))
+                    .animation(.spring(response: 0.8), value: healthScore)
+                VStack(spacing: 2) {
+                    Text("\(healthScore)")
+                        .font(.system(size: 52, weight: .bold, design: .rounded))
+                        .foregroundColor(healthColor)
+                    Text(healthLabel)
+                        .font(.system(size: 14))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                }
+            }
+            Text("Your Financial Health Score")
+                .font(.system(size: 12))
+                .foregroundColor(Color(uiColor: .tertiaryLabel))
+        }
+        .padding(.top, 20)
+    }
+    
+    @ViewBuilder
+    private var healthChartSection: some View {
+        HealthComponentsChart(scoreHistory: scoreHistory, color: healthColor)
+            .padding(.horizontal, 16)
+    }
+    
+    @ViewBuilder
+    private var healthBreakdownSection: some View {
+        let goalsDesc = viewModel.goals.isEmpty ? "No goals set" : "\(viewModel.goals.count) goals, \(viewModel.goals.filter { $0.progress > 0 }.count) in progress"
+        
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Score Breakdown").font(.system(size: 15, weight: .semibold))
+            HealthScoreRow(icon: "percent", title: "Savings Rate", description: "Saving \(Int(max(0, viewModel.savingsRate)))% of income", score: savingsRateScore, maxScore: 30, color: Theme.Colors.income)
+            HealthScoreRow(icon: "gauge.with.dots.needle.33percent", title: "Budget Adherence", description: budgetAdherenceDescription, score: budgetAdherenceScore, maxScore: 15, color: Theme.Colors.primary)
+            HealthScoreRow(icon: "target", title: "Goals Progress", description: goalsDesc, score: goalsScore, maxScore: 15, color: Theme.Colors.goals)
+            HealthScoreRow(icon: "list.clipboard.fill", title: "Tracking Consistency", description: "\(viewModel.transactions.count) transactions recorded", score: trackingScore, maxScore: 15, color: Color(hex: "AF52DE"))
+            HealthScoreRow(icon: "building.columns.fill", title: "Account Diversification", description: "\(viewModel.accounts.count) accounts", score: diversificationScore, maxScore: 10, color: Theme.Colors.transfer)
+            HealthScoreRow(icon: "chart.line.downtrend.xyaxis", title: "Spending Trend", description: spendingTrendDescription, score: spendingTrendScore, maxScore: 15, color: Theme.Colors.recurring)
+        }
+        .padding(16)
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .cornerRadius(16)
+        .padding(.horizontal, 16)
+    }
+    
+    @ViewBuilder
+    private var healthAllocationSection: some View {
+        let totalMoney = viewModel.totalBalance
+        let accountsTotal = viewModel.accounts.reduce(0) { $0 + viewModel.balanceForAccount($1) }
+        let potsTotal = viewModel.totalEnvelopeBalance
+        let currency = viewModel.appState.selectedCurrency
+        
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Money Allocation").font(.system(size: 15, weight: .semibold))
+            
+            if totalMoney > 0 {
+                GeometryReader { geo in
+                    HStack(spacing: 2) {
+                        if accountsTotal > 0 {
+                            RoundedRectangle(cornerRadius: 4).fill(Theme.Colors.primary)
+                                .frame(width: geo.size.width * CGFloat(accountsTotal / totalMoney))
+                        }
+                        if potsTotal > 0 {
+                            RoundedRectangle(cornerRadius: 4).fill(Theme.Colors.income)
+                                .frame(width: geo.size.width * CGFloat(potsTotal / totalMoney))
+                        }
+                    }
+                }
+                .frame(height: 12)
+                
+                HStack(spacing: 16) {
+                    HStack(spacing: 4) {
+                        Circle().fill(Theme.Colors.primary).frame(width: 8, height: 8)
+                        Text("Accounts \(formatCurrency(accountsTotal, currency: currency))").font(.system(size: 11)).foregroundColor(Color(uiColor: .secondaryLabel))
+                    }
+                    HStack(spacing: 4) {
+                        Circle().fill(Theme.Colors.income).frame(width: 8, height: 8)
+                        Text("Pots \(formatCurrency(potsTotal, currency: currency))").font(.system(size: 11)).foregroundColor(Color(uiColor: .secondaryLabel))
+                    }
+                }
+            } else {
+                Text("No money tracked yet").font(.system(size: 13)).foregroundColor(Color(uiColor: .tertiaryLabel)).frame(maxWidth: .infinity, alignment: .center)
+            }
+        }
+        .padding(16)
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .cornerRadius(16)
+        .padding(.horizontal, 16)
+    }
+    
+    @ViewBuilder
+    private var healthTipsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("How to Improve").font(.system(size: 15, weight: .semibold))
+            
+            if savingsRateScore < 30 {
+                ImprovementTip(icon: "arrow.up.right.circle.fill", title: "Increase Savings", description: "Aim for 20%+ savings rate. You're at \(Int(max(0, viewModel.savingsRate)))%.", color: Theme.Colors.income, action: "Set a budget")
+            }
+            if budgetAdherenceScore < 15 {
+                let hasBudgets = viewModel.categories.contains { ($0.budget ?? 0) > 0 }
+                if !hasBudgets {
+                    ImprovementTip(icon: "gauge.with.dots.needle.33percent", title: "Set Budgets", description: "Add monthly budgets to expense categories to track limits.", color: Theme.Colors.primary, action: "Go to Wallet")
+                } else {
+                    ImprovementTip(icon: "gauge.with.dots.needle.33percent", title: "Stay on Budget", description: "Some categories are over budget. Review your spending.", color: Theme.Colors.primary, action: "Review budgets")
+                }
+            }
+            if goalsScore < 15 {
+                let desc = viewModel.goals.isEmpty ? "Create savings goals to stay motivated." : "Start contributing to your goals."
+                ImprovementTip(icon: "target", title: viewModel.goals.isEmpty ? "Set Goals" : "Progress Goals", description: desc, color: Theme.Colors.goals, action: "Create goal")
+            }
+            if trackingScore < 15 {
+                ImprovementTip(icon: "plus.circle.fill", title: "Track More", description: "Record all transactions for better insights.", color: Color(hex: "AF52DE"), action: "Add transaction")
+            }
+            if diversificationScore < 10 {
+                ImprovementTip(icon: "building.columns.fill", title: "Diversify Accounts", description: "Having 3+ accounts improves financial health.", color: Theme.Colors.transfer, action: "Add account")
+            }
+            if healthScore >= 80 {
+                HStack(spacing: 10) {
+                    Image(systemName: "star.fill").foregroundColor(Theme.Colors.goals)
+                    Text("Outstanding! Your financial health is excellent.").font(.system(size: 14)).foregroundColor(Color(uiColor: .secondaryLabel))
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.Colors.goals.opacity(0.08))
+                .cornerRadius(12)
+            }
+        }
+        .padding(16)
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .cornerRadius(16)
+        .padding(.horizontal, 16)
+    }
+    
+    private var budgetAdherenceDescription: String {
+        let budgeted = viewModel.categories.filter { ($0.budget ?? 0) > 0 }
+        if budgeted.isEmpty { return "No budgets set" }
+        let onBudget = budgeted.filter { viewModel.spendingForCategory($0) <= ($0.budget ?? 0) }
+        return "\(onBudget.count)/\(budgeted.count) categories on budget"
+    }
+    
+    private var spendingTrendDescription: String {
+        let pct = viewModel.expenseDeltaPercent * 100
+        if abs(pct) < 1 { return "Spending is stable" }
+        if pct < 0 { return "Spending decreased \(Int(abs(pct)))% vs last period" }
+        return "Spending increased \(Int(pct))% vs last period"
+    }
+}
+
+struct HealthComponentsChart: View {
+    let scoreHistory: [(label: String, score: Int)]
+    let color: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Score Components")
+                .font(.system(size: 15, weight: .semibold))
+            
+            Chart {
+                ForEach(scoreHistory, id: \.label) { item in
+                    BarMark(
+                        x: .value("Score", item.score),
+                        y: .value("Category", item.label)
+                    )
+                    .foregroundStyle(color.gradient)
+                    .cornerRadius(4)
+                }
+            }
+            .chartXScale(domain: 0...30)
+            .frame(height: 180)
+        }
+        .padding(16)
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .cornerRadius(16)
     }
 }
 

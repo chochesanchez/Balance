@@ -151,6 +151,7 @@ struct Transaction: Identifiable, Codable {
     var date: Date
     var createdAt: Date
     var recurringId: UUID? // Link to recurring transaction
+    var goalId: UUID? // Link to goal/savings pot contribution
     
     init(
         id: UUID = UUID(),
@@ -163,7 +164,8 @@ struct Transaction: Identifiable, Codable {
         note: String = "",
         date: Date = Date(),
         createdAt: Date = Date(),
-        recurringId: UUID? = nil
+        recurringId: UUID? = nil,
+        goalId: UUID? = nil
     ) {
         self.id = id
         self.amount = abs(amount) // Ensure positive
@@ -176,13 +178,30 @@ struct Transaction: Identifiable, Codable {
         self.date = date
         self.createdAt = createdAt
         self.recurringId = recurringId
+        self.goalId = goalId
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        amount = try container.decode(Double.self, forKey: .amount)
+        type = try container.decode(TransactionType.self, forKey: .type)
+        accountId = try container.decode(UUID.self, forKey: .accountId)
+        categoryId = try container.decodeIfPresent(UUID.self, forKey: .categoryId)
+        toAccountId = try container.decodeIfPresent(UUID.self, forKey: .toAccountId)
+        title = try container.decode(String.self, forKey: .title)
+        note = try container.decode(String.self, forKey: .note)
+        date = try container.decode(Date.self, forKey: .date)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        recurringId = try container.decodeIfPresent(UUID.self, forKey: .recurringId)
+        goalId = try container.decodeIfPresent(UUID.self, forKey: .goalId)
     }
     
     var signedAmount: Double {
         switch type {
         case .income: return amount
         case .expense: return -amount
-        case .transfer: return 0 // Transfers don't affect total
+        case .transfer: return 0
         }
     }
 }
