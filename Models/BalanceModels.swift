@@ -341,7 +341,7 @@ enum GoalType: String, Codable, CaseIterable {
 }
 
 // MARK: - Goal Model
-struct Goal: Identifiable, Codable {
+struct Goal: Identifiable, Codable, Hashable {
     let id: UUID
     var title: String
     var description: String

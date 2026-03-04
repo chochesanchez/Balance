@@ -26,6 +26,7 @@ struct RecordView: View {
     @State private var recurringEndDate: Date? = nil
     @State private var hasEndDate = false
     @State private var notifyDaysBefore = 1
+    @FocusState private var amountFocused: Bool
     
     init(viewModel: BalanceViewModel, initialType: TransactionType? = nil, initialIsRecurring: Bool = false) {
         self.viewModel = viewModel
@@ -39,7 +40,7 @@ struct RecordView: View {
         ZStack {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 14) {
-                    AmountInputSection(amount: $amount)
+                    AmountInputSection(amount: $amount, isFocused: $amountFocused)
                     
                     RecordCurrencyRow(
                         currency: viewModel.appState.selectedCurrency,
@@ -104,11 +105,21 @@ struct RecordView: View {
                 .animation(.smooth, value: selectedType)
             }
             .background(Color(uiColor: .systemGroupedBackground))
-            
+            .scrollDismissesKeyboard(.immediately)
+
             if showingSuccess { successOverlay }
         }
         .navigationTitle("Record")
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            if amountFocused {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { amountFocused = false }
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Theme.Colors.primary)
+                }
+            }
+        }
         .sheet(isPresented: $showingAddAccount) {
             AddAccountView(viewModel: viewModel)
         }
@@ -121,16 +132,6 @@ struct RecordView: View {
         }
         .onChange(of: viewModel.appState.selectedCurrency) { _, _ in
             viewModel.saveData()
-        }
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") {
-                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                }
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(Theme.Colors.primary)
-            }
         }
     }
     
@@ -240,31 +241,34 @@ struct RecordView: View {
 // MARK: - Amount Input
 struct AmountInputSection: View {
     @Binding var amount: String
-    
+    var isFocused: FocusState<Bool>.Binding
+
     var body: some View {
         VStack(spacing: 8) {
             Text("Enter amount")
                 .font(.system(size: 13))
                 .foregroundColor(Color(uiColor: .secondaryLabel))
-            
+
             HStack(spacing: 2) {
                 Text("$")
                     .font(.system(size: 38, weight: .bold, design: .rounded))
                     .foregroundColor(Color(uiColor: .label).opacity(amount.isEmpty ? 0.25 : 1))
-                
+
                 ZStack(alignment: .leading) {
                     if amount.isEmpty {
                         Text("0")
                             .font(.system(size: 48, weight: .bold, design: .rounded))
                             .foregroundColor(Color(uiColor: .label).opacity(0.2))
+                            .allowsHitTesting(false)
                     }
-                    
+
                     TextField("", text: $amount)
                         .font(.system(size: 48, weight: .bold, design: .rounded))
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.leading)
                         .foregroundColor(Color(uiColor: .label))
                         .fixedSize()
+                        .focused(isFocused)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -274,6 +278,8 @@ struct AmountInputSection: View {
         .padding(.horizontal, 20)
         .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(16)
+        .contentShape(Rectangle())
+        .onTapGesture { isFocused.wrappedValue = true }
     }
 }
 

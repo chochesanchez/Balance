@@ -12,7 +12,6 @@ struct NewHistoryView: View {
     @State private var showingFiltersSheet = false
     @State private var selectedDate: Date? = nil
     @State private var selectedTransaction: Transaction?
-    @State private var showingTransactionDetail = false
     
     // Advanced filters
     @State private var selectedCategories: Set<UUID> = []
@@ -170,7 +169,6 @@ struct NewHistoryView: View {
                                 .contentShape(Rectangle())
                                 .onTapGesture {
                                     selectedTransaction = transaction
-                                    showingTransactionDetail = true
                                 }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button(role: .destructive) {
@@ -239,14 +237,11 @@ struct NewHistoryView: View {
                 isPresented: $showingFiltersSheet
             )
         }
-        .sheet(isPresented: $showingTransactionDetail) {
-            if let transaction = selectedTransaction {
-                TransactionDetailView(
-                    viewModel: viewModel,
-                    transaction: transaction,
-                    isPresented: $showingTransactionDetail
-                )
-            }
+        .sheet(item: $selectedTransaction) { transaction in
+            TransactionDetailView(
+                viewModel: viewModel,
+                transaction: transaction
+            )
         }
     }
     
@@ -414,7 +409,7 @@ struct HistoryTransactionRow: View {
 struct TransactionDetailView: View {
     @ObservedObject var viewModel: BalanceViewModel
     let transaction: Transaction
-    @Binding var isPresented: Bool
+    @Environment(\.dismiss) private var dismiss
     @State private var isEditing = false
     @State private var showDeleteConfirm = false
     
@@ -427,17 +422,21 @@ struct TransactionDetailView: View {
     @State private var editedToAccountId: UUID?
     @State private var editedCategoryId: UUID?
     
+    private var liveTransaction: Transaction {
+        viewModel.transactions.first(where: { $0.id == transaction.id }) ?? transaction
+    }
+
     private var account: Account? {
-        viewModel.getAccount(by: isEditing ? (editedAccountId ?? transaction.accountId) : transaction.accountId)
+        viewModel.getAccount(by: isEditing ? (editedAccountId ?? transaction.accountId) : liveTransaction.accountId)
     }
     private var toAccount: Account? {
-        guard let id = isEditing ? editedToAccountId : transaction.toAccountId else { return nil }
+        guard let id = isEditing ? editedToAccountId : liveTransaction.toAccountId else { return nil }
         return viewModel.getAccount(by: id)
     }
     private var category: Category? {
-        viewModel.getCategory(by: isEditing ? editedCategoryId : transaction.categoryId)
+        viewModel.getCategory(by: isEditing ? editedCategoryId : liveTransaction.categoryId)
     }
-    private var displayType: TransactionType { isEditing ? editedType : transaction.type }
+    private var displayType: TransactionType { isEditing ? editedType : liveTransaction.type }
     
     private var typeColor: Color {
         switch displayType {
@@ -478,7 +477,7 @@ struct TransactionDetailView: View {
                         if isEditing {
                             withAnimation(.snappy) { isEditing = false }
                         } else {
-                            isPresented = false
+                            dismiss()
                         }
                     }
                 }
@@ -493,7 +492,7 @@ struct TransactionDetailView: View {
                 Button("Delete", role: .destructive) {
                     viewModel.deleteTransaction(transaction)
                     Haptics.medium()
-                    isPresented = false
+                    dismiss()
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
@@ -757,14 +756,15 @@ struct TransactionDetailView: View {
     }
     
     private func startEditing() {
-        editedTitle = transaction.title
-        editedNote = transaction.note
-        editedAmount = String(transaction.amount)
-        editedDate = transaction.date
-        editedType = transaction.type
-        editedAccountId = transaction.accountId
-        editedToAccountId = transaction.toAccountId
-        editedCategoryId = transaction.categoryId
+        let tx = liveTransaction
+        editedTitle = tx.title
+        editedNote = tx.note
+        editedAmount = String(tx.amount)
+        editedDate = tx.date
+        editedType = tx.type
+        editedAccountId = tx.accountId
+        editedToAccountId = tx.toAccountId
+        editedCategoryId = tx.categoryId
         withAnimation(.snappy) { isEditing = true }
     }
     
@@ -906,7 +906,8 @@ struct StatBox: View {
 struct ImprovedDatePickerSheet: View {
     @Binding var selectedDate: Date?
     @Binding var isPresented: Bool
-    
+    @Environment(\.dismiss) private var dismiss
+
     @State private var pickerDate: Date = Date()
     
     var body: some View {
@@ -940,7 +941,7 @@ struct ImprovedDatePickerSheet: View {
                 HStack(spacing: 12) {
                     Button(action: {
                         selectedDate = nil
-                        isPresented = false
+                        dismiss()
                     }) {
                         Text("Clear")
                             .font(.system(size: 16, weight: .medium))
@@ -953,7 +954,7 @@ struct ImprovedDatePickerSheet: View {
                     
                     Button(action: {
                         selectedDate = pickerDate
-                        isPresented = false
+                        dismiss()
                     }) {
                         Text("Apply")
                             .font(.system(size: 16, weight: .semibold))
@@ -1008,6 +1009,7 @@ struct AdvancedFiltersSheet: View {
     @Binding var selectedCategories: Set<UUID>
     @Binding var selectedAccounts: Set<UUID>
     @Binding var isPresented: Bool
+    @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         NavigationStack {
@@ -1079,7 +1081,7 @@ struct AdvancedFiltersSheet: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
-                        isPresented = false
+                        dismiss()
                     }
                     .fontWeight(.semibold)
                 }

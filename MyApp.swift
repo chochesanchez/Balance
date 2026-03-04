@@ -3,7 +3,11 @@ import SwiftUI
 @main
 struct BalanceApp: App {
     @StateObject private var viewModel = BalanceViewModel()
-    
+
+    init() {
+        BalanceShortcuts.updateAppShortcutParameters()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView(viewModel: viewModel)
@@ -23,5 +27,8 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut, value: viewModel.hasCompletedOnboarding)
+        .task {
+            BalanceShortcuts.updateAppShortcutParameters()
+        }
     }
 }

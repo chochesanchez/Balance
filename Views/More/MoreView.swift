@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import Charts
+import AppIntents
 
 // MARK: - More View
 struct MoreView: View {
@@ -58,6 +59,20 @@ struct MoreView: View {
                 }
             }
             
+            // iCloud Sync
+            Section("iCloud") {
+                iCloudSyncRow
+            }
+
+            // Features — Back Tap
+            Section("Quick Access") {
+                NavigationLink(destination: BackTapSetupView()) {
+                    MoreRowView(icon: "hand.tap.fill", title: "Back Tap Quick Record", color: Theme.Colors.primary)
+                }
+                ShortcutsLink()
+                    .shortcutsLinkStyle(.automaticOutline)
+            }
+
             // About
             Section("About") {
                 NavigationLink(destination: HelpView()) {
@@ -86,6 +101,43 @@ struct MoreView: View {
         .navigationBarTitleDisplayMode(.large)
     }
     
+    private var iCloudSyncRow: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(hex: "007AFF"))
+                    .frame(width: 32, height: 32)
+                Image(systemName: "icloud.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+            Text("iCloud Sync")
+                .font(.system(size: 17))
+                .foregroundColor(Color(uiColor: .label))
+            Spacer()
+            if viewModel.iCloudSyncEnabled {
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text("On")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Theme.Colors.income)
+                    if let date = viewModel.lastSyncDate {
+                        Text(formatTime(date))
+                            .font(.system(size: 11))
+                            .foregroundColor(Color(uiColor: .tertiaryLabel))
+                    }
+                }
+            } else {
+                Text("Sign in to iCloud")
+                    .font(.system(size: 13))
+                    .foregroundColor(Color(uiColor: .tertiaryLabel))
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(viewModel.iCloudSyncEnabled
+            ? "iCloud Sync is on\(viewModel.lastSyncDate.map { ", last synced \(formatTime($0))" } ?? "")"
+            : "iCloud Sync is off. Sign in to iCloud in Settings to enable.")
+    }
+
     private var profileSubtitle: String {
         if !viewModel.userProfile.username.isEmpty {
             return "@\(viewModel.userProfile.username)"

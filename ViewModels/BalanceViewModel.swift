@@ -20,21 +20,38 @@ class BalanceViewModel: ObservableObject {
 
     /// Cached weekly balance history — updated automatically after any transaction change.
     @Published private(set) var weeklyHistory: [(weekLabel: String, endDate: Date, balance: Double)] = []
-    
+
+    // MARK: - iCloud Sync State
+    @Published private(set) var iCloudSyncEnabled: Bool = false
+    @Published private(set) var lastSyncDate: Date? = nil
+
     // MARK: - Private Properties
     private let defaults = UserDefaults.standard
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
-    
+    private let sync = iCloudSyncManager.shared
+    private var metadataQuery: NSMetadataQuery?
+
     // Storage Keys
     private enum Keys {
-        static let accounts = "balance_accounts"
-        static let categories = "balance_categories"
-        static let transactions = "balance_transactions"
-        static let goals = "balance_goals"
-        static let recurring = "balance_recurring"
-        static let userProfile = "balance_userProfile"
-        static let appState = "balance_appState"
+        static let accounts      = "balance_accounts"
+        static let categories    = "balance_categories"
+        static let transactions  = "balance_transactions"
+        static let goals         = "balance_goals"
+        static let recurring     = "balance_recurring"
+        static let userProfile   = "balance_userProfile"
+        static let appState      = "balance_appState"
+    }
+
+    // iCloud file names
+    private enum iCloudFiles {
+        static let accounts      = "accounts.json"
+        static let categories    = "categories.json"
+        static let transactions  = "transactions.json"
+        static let goals         = "goals.json"
+        static let recurring     = "recurring.json"
+        static let userProfile   = "userProfile.json"
+        static let appState      = "appState.json"
     }
     
     // MARK: - Initialization
@@ -245,7 +262,7 @@ class BalanceViewModel: ObservableObject {
         if let index = transactions.firstIndex(where: { $0.id == transaction.id }) {
             transactions[index] = transaction
             saveTransactions()
-            refreshWeeklyHistory()
+            Task { self.refreshWeeklyHistory() }
         }
     }
 
@@ -977,104 +994,198 @@ class BalanceViewModel: ObservableObject {
     // MARK: - Persistence
     
     private func loadAllData() {
-        loadAccounts()
-        loadCategories()
-        loadTransactions()
-        loadGoals()
-        loadRecurring()
-        loadUserProfile()
-        loadAppState()
+        iCloudSyncEnabled = sync.isAvailable
+        if sync.isAvailable {
+            loadWithiCloudMerge()
+        } else {
+            loadFromUserDefaults()
+        }
+        setupExternalObservers()
+        startMetadataQuery()
         refreshWeeklyHistory()
     }
-    
+
+    // MARK: Load helpers
+
+    private func loadFromUserDefaults() {
+        loadAccounts(); loadCategories(); loadTransactions()
+        loadGoals(); loadRecurring(); loadUserProfile(); loadAppState()
+    }
+
+    private func loadWithiCloudMerge() {
+        loadMerged([Account].self,              localKey: Keys.accounts,     iCloudFile: iCloudFiles.accounts)     { self.accounts = $0 }
+        loadMerged([Category].self,             localKey: Keys.categories,   iCloudFile: iCloudFiles.categories)   { self.categories = $0 }
+        loadMerged([Transaction].self,          localKey: Keys.transactions, iCloudFile: iCloudFiles.transactions) { self.transactions = $0 }
+        loadMerged([Goal].self,                 localKey: Keys.goals,        iCloudFile: iCloudFiles.goals)        { self.goals = $0 }
+        loadMerged([RecurringTransaction].self, localKey: Keys.recurring,    iCloudFile: iCloudFiles.recurring)    { self.recurringTransactions = $0 }
+        loadMerged(UserProfile.self,            localKey: Keys.userProfile,  iCloudFile: iCloudFiles.userProfile)  { self.userProfile = $0 }
+        loadMerged(AppState.self,               localKey: Keys.appState,     iCloudFile: iCloudFiles.appState)     { self.appState = $0 }
+    }
+
+    /// Loads a Codable type, preferring iCloud data if it is newer than the local copy.
+    private func loadMerged<T: Codable>(_ type: T.Type, localKey: String, iCloudFile: String, assign: (T) -> Void) {
+        let localData  = defaults.data(forKey: localKey)
+        let cloudData  = sync.read(filename: iCloudFile)
+        let cloudDate  = sync.modificationDate(filename: iCloudFile) ?? .distantPast
+        let localDate  = (defaults.object(forKey: localKey + "_date") as? Date) ?? .distantPast
+        let useCloud   = cloudData != nil && cloudDate > localDate
+        let data       = useCloud ? cloudData : localData
+        if let data, let decoded = try? decoder.decode(type, from: data) {
+            assign(decoded)
+            if useCloud { defaults.set(data, forKey: localKey) }
+        }
+    }
+
+    // MARK: iCloud observers
+
+    private func setupExternalObservers() {
+        // Reload when app returns to foreground (picks up changes from other devices)
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.willEnterForegroundNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.sync.isAvailable else { return }
+                self.loadWithiCloudMerge()
+                self.refreshWeeklyHistory()
+            }
+        }
+        // Reload when Back Tap intent writes a transaction while the app is backgrounded
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("BalanceExternalDataChanged"),
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.loadTransactions()
+                self?.refreshWeeklyHistory()
+            }
+        }
+    }
+
+    private func startMetadataQuery() {
+        guard sync.isAvailable else { return }
+        let q = NSMetadataQuery()
+        q.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
+        q.predicate = NSPredicate(format: "%K LIKE '*.json'", NSMetadataItemFSNameKey)
+        q.notificationBatchingInterval = 1.0
+        NotificationCenter.default.addObserver(
+            forName: .NSMetadataQueryDidUpdate,
+            object: q, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.loadWithiCloudMerge()
+                self?.refreshWeeklyHistory()
+                self?.lastSyncDate = Date()
+            }
+        }
+        q.start()
+        metadataQuery = q
+    }
+
+    // MARK: Individual load methods
+
     private func loadAccounts() {
         if let data = defaults.data(forKey: Keys.accounts),
            let decoded = try? decoder.decode([Account].self, from: data) {
             accounts = decoded
         }
     }
-    
+
     private func saveAccounts() {
         if let encoded = try? encoder.encode(accounts) {
             defaults.set(encoded, forKey: Keys.accounts)
+            defaults.set(Date(), forKey: Keys.accounts + "_date")
+            if sync.isAvailable { sync.write(encoded, filename: iCloudFiles.accounts); lastSyncDate = Date() }
         }
     }
-    
+
     private func loadCategories() {
         if let data = defaults.data(forKey: Keys.categories),
            let decoded = try? decoder.decode([Category].self, from: data) {
             categories = decoded
         }
     }
-    
+
     private func saveCategories() {
         if let encoded = try? encoder.encode(categories) {
             defaults.set(encoded, forKey: Keys.categories)
+            defaults.set(Date(), forKey: Keys.categories + "_date")
+            if sync.isAvailable { sync.write(encoded, filename: iCloudFiles.categories); lastSyncDate = Date() }
         }
     }
-    
+
     private func loadTransactions() {
         if let data = defaults.data(forKey: Keys.transactions),
            let decoded = try? decoder.decode([Transaction].self, from: data) {
             transactions = decoded
         }
     }
-    
+
     private func saveTransactions() {
         if let encoded = try? encoder.encode(transactions) {
             defaults.set(encoded, forKey: Keys.transactions)
+            defaults.set(Date(), forKey: Keys.transactions + "_date")
+            if sync.isAvailable { sync.write(encoded, filename: iCloudFiles.transactions); lastSyncDate = Date() }
         }
     }
-    
+
     private func loadGoals() {
         if let data = defaults.data(forKey: Keys.goals),
            let decoded = try? decoder.decode([Goal].self, from: data) {
             goals = decoded
         }
     }
-    
+
     private func saveGoals() {
         if let encoded = try? encoder.encode(goals) {
             defaults.set(encoded, forKey: Keys.goals)
+            defaults.set(Date(), forKey: Keys.goals + "_date")
+            if sync.isAvailable { sync.write(encoded, filename: iCloudFiles.goals); lastSyncDate = Date() }
         }
     }
-    
+
     private func loadRecurring() {
         if let data = defaults.data(forKey: Keys.recurring),
            let decoded = try? decoder.decode([RecurringTransaction].self, from: data) {
             recurringTransactions = decoded
         }
     }
-    
+
     private func saveRecurring() {
         if let encoded = try? encoder.encode(recurringTransactions) {
             defaults.set(encoded, forKey: Keys.recurring)
+            defaults.set(Date(), forKey: Keys.recurring + "_date")
+            if sync.isAvailable { sync.write(encoded, filename: iCloudFiles.recurring); lastSyncDate = Date() }
         }
     }
-    
+
     private func loadUserProfile() {
         if let data = defaults.data(forKey: Keys.userProfile),
            let decoded = try? decoder.decode(UserProfile.self, from: data) {
             userProfile = decoded
         }
     }
-    
+
     private func saveUserProfile() {
         if let encoded = try? encoder.encode(userProfile) {
             defaults.set(encoded, forKey: Keys.userProfile)
+            defaults.set(Date(), forKey: Keys.userProfile + "_date")
+            if sync.isAvailable { sync.write(encoded, filename: iCloudFiles.userProfile); lastSyncDate = Date() }
         }
     }
-    
+
     private func loadAppState() {
         if let data = defaults.data(forKey: Keys.appState),
            let decoded = try? decoder.decode(AppState.self, from: data) {
             appState = decoded
         }
     }
-    
+
     private func saveAppState() {
         if let encoded = try? encoder.encode(appState) {
             defaults.set(encoded, forKey: Keys.appState)
+            defaults.set(Date(), forKey: Keys.appState + "_date")
+            if sync.isAvailable { sync.write(encoded, filename: iCloudFiles.appState); lastSyncDate = Date() }
         }
     }
     

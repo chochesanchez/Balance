@@ -171,7 +171,7 @@ struct AccountsListView: View {
                     } else {
                         VStack(spacing: 0) {
                             ForEach(Array(filteredAccounts.enumerated()), id: \.element.id) { index, account in
-                                NavigationLink(destination: AccountDetailView(viewModel: viewModel, account: account)) {
+                                NavigationLink(value: account) {
                                     AccountRowView(
                                         account: account,
                                         balance: viewModel.balanceForAccount(account),
@@ -208,7 +208,7 @@ struct AccountsListView: View {
                     } else {
                         VStack(spacing: 0) {
                             ForEach(Array(viewModel.envelopes.enumerated()), id: \.element.id) { index, pot in
-                                NavigationLink(destination: GoalDetailView(viewModel: viewModel, goal: pot)) {
+                                NavigationLink(value: pot) {
                                     HStack(spacing: 12) {
                                         ZStack {
                                             Circle()
@@ -255,6 +255,12 @@ struct AccountsListView: View {
             }
             .padding(.vertical, 16)
             .padding(.bottom, 16)
+        }
+        .navigationDestination(for: Account.self) { account in
+            AccountDetailView(viewModel: viewModel, account: account)
+        }
+        .navigationDestination(for: Goal.self) { goal in
+            GoalDetailView(viewModel: viewModel, goal: goal)
         }
         .sheet(isPresented: $showingAddPot) {
             NavigationStack {
@@ -406,7 +412,7 @@ struct CategorySection: View {
             
                 VStack(spacing: 0) {
                 ForEach(Array(categories.enumerated()), id: \.element.id) { index, category in
-                        NavigationLink(destination: CategoryMetricsView(viewModel: viewModel, category: category)) {
+                        NavigationLink(value: category) {
                         CategoryRowView(category: category, viewModel: viewModel)
                     }
                     
@@ -418,6 +424,9 @@ struct CategorySection: View {
             .background(Color(uiColor: .secondarySystemGroupedBackground))
             .cornerRadius(14)
             .padding(.horizontal, 16)
+        }
+        .navigationDestination(for: Category.self) { category in
+            CategoryMetricsView(viewModel: viewModel, category: category)
         }
     }
 }
