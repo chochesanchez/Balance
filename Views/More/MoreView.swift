@@ -42,7 +42,11 @@ struct MoreView: View {
                 NavigationLink(destination: GoalsListView(viewModel: viewModel)) {
                     MoreRowView(icon: "target", title: "Goals", color: Theme.Colors.goals)
                 }
-                
+
+                NavigationLink(destination: SavingsPotsListView(viewModel: viewModel)) {
+                    MoreRowView(icon: "tray.2.fill", title: "Savings Pots", color: Color(hex: "30D158"))
+                }
+
                 NavigationLink(destination: RecurringView(viewModel: viewModel)) {
                     RecurringBadgeRow(viewModel: viewModel)
                 }
@@ -1049,13 +1053,12 @@ struct GoalsListView: View {
     @State private var showingCalendar = false
     @State private var selectedGoalItem: Goal? = nil
 
-    private var savingsPots: [Goal] { viewModel.goals.filter { $0.goalType == .envelope } }
     private var activeGoals: [Goal] { viewModel.goals.filter { $0.goalType == .goal && $0.progress < 100 } }
     private var completedGoals: [Goal] { viewModel.goals.filter { $0.goalType == .goal && $0.progress >= 100 } }
     
     var body: some View {
         List {
-            if !viewModel.goals.isEmpty {
+            if !activeGoals.isEmpty || !completedGoals.isEmpty {
                 Section {
                     VStack(spacing: 14) {
                         HStack(spacing: 24) {
@@ -1065,8 +1068,8 @@ struct GoalsListView: View {
                                 color: Theme.Colors.goals
                             )
                             GoalSummaryItem(
-                                value: "\(savingsPots.count)",
-                                label: "Pots",
+                                value: "\(activeGoals.count)",
+                                label: "Active",
                                 color: Theme.Colors.primary
                             )
                             GoalSummaryItem(
@@ -1094,47 +1097,6 @@ struct GoalsListView: View {
                 }
             }
             
-            if !savingsPots.isEmpty {
-                Section("Savings Pots") {
-                    ForEach(savingsPots) { pot in
-                        Button { selectedGoalItem = pot } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: pot.icon)
-                                    .font(.system(size: 16))
-                                    .foregroundColor(pot.colorValue)
-                                    .frame(width: 40, height: 40)
-                                    .background(pot.colorValue.opacity(0.12))
-                                    .clipShape(Circle())
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(pot.title)
-                                        .font(.system(size: 15, weight: .semibold))
-                                        .foregroundColor(Color(uiColor: .label))
-                                    Text("Savings Pot")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(Color(uiColor: .secondaryLabel))
-                                }
-
-                                Spacer()
-
-                                Text(formatCurrency(pot.currentAmount, currency: viewModel.appState.selectedCurrency))
-                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                                    .foregroundColor(pot.colorValue)
-
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(Color(uiColor: .tertiaryLabel))
-                            }
-                            .padding(.vertical, 4)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .onDelete { indexSet in
-                        for index in indexSet { viewModel.deleteGoal(savingsPots[index]) }
-                    }
-                }
-            }
-
             if !activeGoals.isEmpty {
                 Section("Active Goals") {
                     ForEach(activeGoals) { goal in
@@ -1160,7 +1122,7 @@ struct GoalsListView: View {
                 }
             }
             
-            if viewModel.goals.isEmpty {
+            if activeGoals.isEmpty && completedGoals.isEmpty {
                 VStack(spacing: 14) {
                     Spacer().frame(height: 40)
                     
@@ -1171,7 +1133,7 @@ struct GoalsListView: View {
                     Text("No Goals Yet")
                         .font(.system(size: 17, weight: .semibold))
                     
-                    Text("Create savings goals or pots\nto manage your money")
+                    Text("Create savings goals to track\nyour progress towards targets")
                         .font(.system(size: 14))
                         .foregroundColor(Color(uiColor: .secondaryLabel))
                         .multilineTextAlignment(.center)
@@ -1205,6 +1167,98 @@ struct GoalsListView: View {
         }
         .sheet(isPresented: $showingAddGoal) { AddGoalView(viewModel: viewModel) }
         .sheet(isPresented: $showingCalendar) { GoalsCalendarView(viewModel: viewModel) }
+    }
+}
+
+// MARK: - Savings Pots List View (More tab)
+struct SavingsPotsListView: View {
+    @ObservedObject var viewModel: BalanceViewModel
+    @State private var selectedPot: Goal?
+    @State private var showAddPot = false
+
+    private var pots: [Goal] {
+        viewModel.goals.filter { $0.goalType == .envelope }
+    }
+
+    var body: some View {
+        List {
+            if pots.isEmpty {
+                VStack(spacing: 14) {
+                    Spacer().frame(height: 40)
+                    Image(systemName: "tray.2.fill")
+                        .font(.system(size: 44))
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
+                    Text("No Savings Pots")
+                        .font(.system(size: 17, weight: .semibold))
+                    Text("Create pots for Savings, Investment, Charity, etc.")
+                        .font(.system(size: 14))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                        .multilineTextAlignment(.center)
+                    Button(action: { showAddPot = true }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "plus.circle.fill")
+                            Text("Create Pot")
+                        }
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Color(hex: "30D158"))
+                    }
+                    .padding(.top, 8)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity)
+                .listRowBackground(Color.clear)
+            } else {
+                Section {
+                    ForEach(pots) { pot in
+                        Button { selectedPot = pot } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: pot.icon)
+                                    .font(.system(size: 16))
+                                    .foregroundColor(pot.colorValue)
+                                    .frame(width: 40, height: 40)
+                                    .background(pot.colorValue.opacity(0.12))
+                                    .clipShape(Circle())
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(pot.title)
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundColor(Color(uiColor: .label))
+                                    Text("Savings Pot")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                                }
+                                Spacer()
+                                Text(formatCurrency(pot.currentAmount, currency: viewModel.appState.selectedCurrency))
+                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                    .foregroundColor(pot.colorValue)
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Color(uiColor: .tertiaryLabel))
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .onDelete { indices in
+                        for index in indices { viewModel.deleteGoal(pots[index]) }
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("Savings Pots")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button { showAddPot = true } label: { Image(systemName: "plus") }
+            }
+        }
+        .sheet(isPresented: $showAddPot) {
+            NavigationStack { QuickAddPotSheet(viewModel: viewModel) }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .navigationDestination(item: $selectedPot) { pot in
+            GoalDetailView(viewModel: viewModel, goal: pot)
+        }
     }
 }
 
@@ -1327,14 +1381,15 @@ struct GoalDetailView: View {
                 Section {
                     VStack(spacing: 14) {
                         // Icon with streak badge
-                        ZStack(alignment: .topTrailing) {
+                        ZStack {
                             Circle()
                                 .fill(currentGoal.colorValue.opacity(0.12))
                                 .frame(width: 80, height: 80)
                             Image(systemName: currentGoal.icon)
                                 .font(.system(size: 36))
                                 .foregroundColor(currentGoal.colorValue)
-
+                        }
+                        .overlay(alignment: .topTrailing) {
                             if currentGoal.streak >= 2 {
                                 HStack(spacing: 2) {
                                     Text("🔥")
@@ -1350,6 +1405,7 @@ struct GoalDetailView: View {
                                 .offset(x: 8, y: -4)
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .center)
 
                         Text(currentGoal.title)
                             .font(.system(size: 22, weight: .bold))
@@ -1711,98 +1767,99 @@ struct GoalContributeSheet: View {
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 20) {
-                ZStack {
-                    Circle()
-                        .fill(goal.colorValue.opacity(0.12))
-                        .frame(width: 56, height: 56)
-                    Image(systemName: goal.icon)
-                        .font(.system(size: 24))
-                        .foregroundColor(goal.colorValue)
-                }
-                
-                Text(goal.title)
-                    .font(.system(size: 17, weight: .semibold))
-                
-                Text(formatCurrency(goal.currentAmount, currency: viewModel.appState.selectedCurrency))
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(goal.colorValue)
-                
-                Picker("", selection: $isWithdraw) {
-                    Text("Add").tag(false)
-                    Text("Withdraw").tag(true)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 40)
-                
-                // Source account picker
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(isWithdraw ? "RETURN TO" : "FROM ACCOUNT")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(Color(uiColor: .secondaryLabel))
-                        .padding(.horizontal, 20)
-                    
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            // "None" option for withdrawals — money is spent from the pot
-                            if isWithdraw {
-                                let noneSelected = selectedAccountId == nil
-                                Button(action: { withAnimation(.snappy) { selectedAccountId = nil }; Haptics.selection() }) {
-                                    VStack(spacing: 4) {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .font(.system(size: 16))
-                                            .foregroundColor(noneSelected ? .white : Color(uiColor: .secondaryLabel))
-                                            .frame(width: 36, height: 36)
-                                            .background(noneSelected ? Color(uiColor: .secondaryLabel) : Color(uiColor: .tertiarySystemFill))
-                                            .clipShape(Circle())
-                                        Text("None")
-                                            .font(.system(size: 11, weight: noneSelected ? .semibold : .regular))
-                                            .foregroundColor(noneSelected ? Color(uiColor: .label) : Color(uiColor: .tertiaryLabel))
-                                            .lineLimit(1)
-                                    }
-                                    .frame(width: 64)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            ForEach(viewModel.accounts) { account in
-                                let isSelected = selectedAccountId == account.id
-                                Button(action: { withAnimation(.snappy) { selectedAccountId = account.id }; Haptics.selection() }) {
-                                    VStack(spacing: 4) {
-                                        Image(systemName: account.icon)
-                                            .font(.system(size: 16))
-                                            .foregroundColor(isSelected ? .white : Color(hex: account.color))
-                                            .frame(width: 36, height: 36)
-                                            .background(isSelected ? Color(hex: account.color) : Color(hex: account.color).opacity(0.12))
-                                            .clipShape(Circle())
+            VStack(spacing: 0) {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 20) {
+                        ZStack {
+                            Circle()
+                                .fill(goal.colorValue.opacity(0.12))
+                                .frame(width: 56, height: 56)
+                            Image(systemName: goal.icon)
+                                .font(.system(size: 24))
+                                .foregroundColor(goal.colorValue)
+                        }
 
-                                        Text(account.name)
-                                            .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
-                                            .foregroundColor(isSelected ? Color(uiColor: .label) : Color(uiColor: .secondaryLabel))
-                                            .lineLimit(1)
+                        Text(goal.title)
+                            .font(.system(size: 17, weight: .semibold))
+
+                        Text(formatCurrency(goal.currentAmount, currency: viewModel.appState.selectedCurrency))
+                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                            .foregroundColor(goal.colorValue)
+
+                        Picker("", selection: $isWithdraw) {
+                            Text("Add").tag(false)
+                            Text("Withdraw").tag(true)
+                        }
+                        .pickerStyle(.segmented)
+                        .padding(.horizontal, 40)
+
+                        // Account picker — None available for both Add and Withdraw
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(isWithdraw ? "RETURN TO" : "FROM ACCOUNT")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(Color(uiColor: .secondaryLabel))
+                                .padding(.horizontal, 20)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 10) {
+                                    let noneSelected = selectedAccountId == nil
+                                    Button(action: { withAnimation(.snappy) { selectedAccountId = nil }; Haptics.selection() }) {
+                                        VStack(spacing: 4) {
+                                            Image(systemName: "xmark.circle.fill")
+                                                .font(.system(size: 16))
+                                                .foregroundColor(noneSelected ? .white : Color(uiColor: .secondaryLabel))
+                                                .frame(width: 36, height: 36)
+                                                .background(noneSelected ? Color(uiColor: .secondaryLabel) : Color(uiColor: .tertiarySystemFill))
+                                                .clipShape(Circle())
+                                            Text("None")
+                                                .font(.system(size: 11, weight: noneSelected ? .semibold : .regular))
+                                                .foregroundColor(noneSelected ? Color(uiColor: .label) : Color(uiColor: .tertiaryLabel))
+                                                .lineLimit(1)
+                                        }
+                                        .frame(width: 64)
                                     }
-                                    .frame(width: 64)
+                                    .buttonStyle(.plain)
+
+                                    ForEach(viewModel.accounts) { account in
+                                        let isSelected = selectedAccountId == account.id
+                                        Button(action: { withAnimation(.snappy) { selectedAccountId = account.id }; Haptics.selection() }) {
+                                            VStack(spacing: 4) {
+                                                Image(systemName: account.icon)
+                                                    .font(.system(size: 16))
+                                                    .foregroundColor(isSelected ? .white : Color(hex: account.color))
+                                                    .frame(width: 36, height: 36)
+                                                    .background(isSelected ? Color(hex: account.color) : Color(hex: account.color).opacity(0.12))
+                                                    .clipShape(Circle())
+                                                Text(account.name)
+                                                    .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                                                    .foregroundColor(isSelected ? Color(uiColor: .label) : Color(uiColor: .secondaryLabel))
+                                                    .lineLimit(1)
+                                            }
+                                            .frame(width: 64)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
                                 }
-                                .buttonStyle(.plain)
+                                .padding(.horizontal, 20)
                             }
                         }
-                        .padding(.horizontal, 20)
+
+                        HStack(spacing: 4) {
+                            Text(currencySymbol)
+                                .font(.system(size: 32, weight: .bold, design: .rounded))
+                                .foregroundColor(Color(uiColor: .label).opacity(amount.isEmpty ? 0.25 : 1))
+                            TextField("0", text: $amount)
+                                .font(.system(size: 40, weight: .bold, design: .rounded))
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.center)
+                                .foregroundColor(Color(uiColor: .label))
+                        }
+                        .frame(maxWidth: 200)
                     }
+                    .padding(.top, 20)
+                    .padding(.bottom, 16)
                 }
-                
-                HStack(spacing: 4) {
-                    Text(currencySymbol)
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundColor(Color(uiColor: .label).opacity(amount.isEmpty ? 0.25 : 1))
-
-                    TextField("0", text: $amount)
-                        .font(.system(size: 40, weight: .bold, design: .rounded))
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(Color(uiColor: .label))
-                }
-                .frame(maxWidth: 200)
-
-                Spacer()
+                .scrollDismissesKeyboard(.interactively)
 
                 Button(action: contribute) {
                     Text(isWithdraw ? "Withdraw" : "Add Money")
@@ -1815,9 +1872,8 @@ struct GoalContributeSheet: View {
                 }
                 .disabled(!canContribute)
                 .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
-            .padding(.top, 20)
-            .padding(.bottom, 20)
             .navigationTitle(isWithdraw ? "Withdraw" : "Add Money")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1827,7 +1883,7 @@ struct GoalContributeSheet: View {
             }
             .onAppear {
                 isWithdraw = initialIsWithdraw
-                selectedAccountId = viewModel.accounts.first?.id
+                selectedAccountId = nil
             }
         }
         .presentationDetents([.large])
@@ -1843,7 +1899,6 @@ struct GoalContributeSheet: View {
 
     private var canContribute: Bool {
         guard let value = Double(amount), value > 0 else { return false }
-        if !isWithdraw && selectedAccountId == nil { return false }
         if isWithdraw && value > goal.currentAmount { return false }
         return true
     }

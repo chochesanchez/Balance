@@ -105,7 +105,7 @@ struct SavingsPotsSummarySection: View {
             GoalDetailView(viewModel: viewModel, goal: pot)
         }
         .navigationDestination(isPresented: $navigateToPots) {
-            GoalsListView(viewModel: viewModel)
+            SavingsPotsListView(viewModel: viewModel)
         }
         .sheet(isPresented: $showAddPot) {
             NavigationStack {
@@ -307,8 +307,16 @@ struct QuickAddPotSheet: View {
     @ObservedObject var viewModel: BalanceViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
+    @State private var initialBalance = ""
     @State private var selectedIcon = "banknote.fill"
     @State private var selectedColorIndex = 13
+
+    private var currencySymbol: String {
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        f.currencyCode = viewModel.appState.selectedCurrency
+        return f.currencySymbol ?? "$"
+    }
 
     private let potIcons = [
         "banknote.fill", "chart.line.uptrend.xyaxis", "heart.fill", "graduationcap.fill",
@@ -342,6 +350,18 @@ struct QuickAddPotSheet: View {
                     .padding(Theme.Spacing.sm)
                     .background(Color(uiColor: .tertiarySystemFill))
                     .cornerRadius(Theme.CornerRadius.small)
+
+                HStack(spacing: 6) {
+                    Text(currencySymbol)
+                        .font(.system(size: 15))
+                        .foregroundColor(Color(uiColor: .secondaryLabel))
+                    TextField("Initial balance (optional)", text: $initialBalance)
+                        .font(.system(size: 15))
+                        .keyboardType(.decimalPad)
+                }
+                .padding(Theme.Spacing.sm)
+                .background(Color(uiColor: .tertiarySystemFill))
+                .cornerRadius(Theme.CornerRadius.small)
 
                 // Icon picker
                 VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
@@ -412,6 +432,9 @@ struct QuickAddPotSheet: View {
             goalType: .envelope
         )
         viewModel.addGoal(pot)
+        if let balance = Double(initialBalance), balance > 0 {
+            viewModel.contributeToGoal(pot, amount: balance, fromAccountId: nil)
+        }
         Haptics.success()
         dismiss()
     }

@@ -91,7 +91,6 @@ struct AccountsListView: View {
     @ObservedObject var viewModel: BalanceViewModel
     let searchText: String
     @Binding var showingAddAccount: Bool
-    @State private var showingAddPot = false
     
     private var filteredAccounts: [Account] {
         if searchText.isEmpty { return viewModel.accounts }
@@ -190,84 +189,12 @@ struct AccountsListView: View {
                     }
                 }
                 
-                // Savings Pots
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("SAVINGS POTS")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(Color(uiColor: .secondaryLabel))
-                        .padding(.horizontal, 20)
-                    
-                    if viewModel.envelopes.isEmpty {
-                        WalletEmptyState(
-                            icon: "tray.2.fill",
-                            title: "No savings pots",
-                            message: "Create pots for Savings, Investment, etc.",
-                            buttonTitle: "Add Pot",
-                            action: { showingAddPot = true }
-                        )
-                    } else {
-                        VStack(spacing: 0) {
-                            ForEach(Array(viewModel.envelopes.enumerated()), id: \.element.id) { index, pot in
-                                NavigationLink(value: pot) {
-                                    HStack(spacing: 12) {
-                                        ZStack {
-                                            Circle()
-                                                .fill(pot.colorValue.opacity(0.12))
-                                                .frame(width: 44, height: 44)
-                                            Image(systemName: pot.icon)
-                                                .font(.system(size: 18))
-                                                .foregroundColor(pot.colorValue)
-                                        }
-                                        
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(pot.title)
-                                                .font(.system(size: 15, weight: .semibold))
-                                                .foregroundColor(Color(uiColor: .label))
-                                            Text("Savings Pot")
-                                                .font(.system(size: 12))
-                                                .foregroundColor(Color(uiColor: .secondaryLabel))
-                                        }
-                                        
-                                        Spacer()
-                                        
-                                        Text(formatCurrency(pot.currentAmount, currency: viewModel.appState.selectedCurrency))
-                                            .font(.system(size: 15, weight: .semibold, design: .rounded))
-                                            .foregroundColor(Color(uiColor: .label))
-                                        
-                                        Image(systemName: "chevron.right")
-                                            .font(.system(size: 11, weight: .medium))
-                                            .foregroundColor(Color(uiColor: .quaternaryLabel))
-                                    }
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 12)
-                                }
-                                
-                                if index < viewModel.envelopes.count - 1 {
-                                    Divider().padding(.leading, 68)
-                                }
-                            }
-                        }
-                        .background(Color(uiColor: .secondarySystemGroupedBackground))
-                        .cornerRadius(14)
-                        .padding(.horizontal, 16)
-                    }
-                }
             }
             .padding(.vertical, 16)
             .padding(.bottom, 16)
         }
         .navigationDestination(for: Account.self) { account in
             AccountDetailView(viewModel: viewModel, account: account)
-        }
-        .navigationDestination(for: Goal.self) { goal in
-            GoalDetailView(viewModel: viewModel, goal: goal)
-        }
-        .sheet(isPresented: $showingAddPot) {
-            NavigationStack {
-                QuickAddPotSheet(viewModel: viewModel)
-            }
-            .presentationDetents([.height(420)])
-            .presentationDragIndicator(.visible)
         }
     }
 }
