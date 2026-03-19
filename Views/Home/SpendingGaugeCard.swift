@@ -136,13 +136,13 @@ struct SpendingGaugeCard: View {
                 // Center content
                 VStack(spacing: 2) {
                     if spendingLimit > 0 {
-                        Text(formatCurrency(scopeExpenses, currency: viewModel.appState.selectedCurrency))
+                        Text(formatCurrency(remaining, currency: viewModel.appState.selectedCurrency))
                             .font(.system(size: 28, weight: .bold, design: .rounded))
                             .foregroundColor(Color(uiColor: .label))
-                            .contentTransition(.numericText(value: scopeExpenses))
-                            .animation(.snappy, value: scopeExpenses)
-                            .accessibilityLabel("Spent \(scopeLabel)")
-                            .accessibilityValue(formatCurrency(scopeExpenses, currency: viewModel.appState.selectedCurrency))
+                            .contentTransition(.numericText(value: remaining))
+                            .animation(.snappy, value: remaining)
+                            .accessibilityLabel("Remaining \(scopeLabel)")
+                            .accessibilityValue(formatCurrency(remaining, currency: viewModel.appState.selectedCurrency))
 
                         Text("of \(formatCompactAmount(spendingLimit, currency: viewModel.appState.selectedCurrency)) \(scopeLabel)")
                             .font(Theme.Typography.caption)

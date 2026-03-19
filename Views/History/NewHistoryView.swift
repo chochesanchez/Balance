@@ -16,6 +16,8 @@ struct NewHistoryView: View {
     // Advanced filters
     @State private var selectedCategories: Set<UUID> = []
     @State private var selectedAccounts: Set<UUID> = []
+    @State private var selectedGoalIds: Set<UUID> = []
+    @State private var transactionToDelete: Transaction? = nil
     
     private var filteredTransactions: [Transaction] {
         var transactions = viewModel.transactions
@@ -61,7 +63,15 @@ struct NewHistoryView: View {
         if !selectedAccounts.isEmpty {
             transactions = transactions.filter { selectedAccounts.contains($0.accountId) }
         }
-        
+
+        // Filter by savings pots
+        if !selectedGoalIds.isEmpty {
+            transactions = transactions.filter { tx in
+                if let gid = tx.goalId { return selectedGoalIds.contains(gid) }
+                return false
+            }
+        }
+
         return transactions.sorted { $0.date > $1.date }
     }
     
@@ -136,6 +146,17 @@ struct NewHistoryView: View {
                     )
                     
                     FilterPill(
+                        title: "Pots",
+                        icon: "tray.2.fill",
+                        isSelected: !selectedGoalIds.isEmpty,
+                        selectedColor: Theme.Colors.primary,
+                        action: {
+                            showingFiltersSheet = true
+                            Haptics.light()
+                        }
+                    )
+
+                    FilterPill(
                         title: "Recurring",
                         icon: "repeat.circle.fill",
                         isSelected: showRecurringOnly,
@@ -160,20 +181,30 @@ struct NewHistoryView: View {
                     ForEach(groupedTransactions, id: \.0) { date, transactions in
                         Section(header: Text(date).font(Theme.Typography.subheadline)) {
                             ForEach(transactions) { transaction in
+                                let potGoal: Goal? = transaction.goalId.flatMap { id in
+                                    viewModel.goals.first(where: { $0.id == id })
+                                }
+                                let resolvedAccount: Account? = {
+                                    if potGoal != nil, let toId = transaction.toAccountId {
+                                        return viewModel.getAccount(by: toId)
+                                    }
+                                    return viewModel.getAccount(by: transaction.accountId)
+                                }()
                                 HistoryTransactionRow(
                                     transaction: transaction,
-                                    account: viewModel.getAccount(by: transaction.accountId),
+                                    account: resolvedAccount,
                                     category: viewModel.getCategory(by: transaction.categoryId),
+                                    goal: potGoal,
                                     currency: viewModel.appState.selectedCurrency
                                 )
                                 .contentShape(Rectangle())
                                 .onTapGesture {
                                     selectedTransaction = transaction
                                 }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                     Button(role: .destructive) {
-                                        viewModel.deleteTransaction(transaction)
-                                        Haptics.medium()
+                                        transactionToDelete = transaction
+                                        Haptics.light()
                                     } label: {
                                         Label("Delete", systemImage: "trash")
                                     }
@@ -234,6 +265,7 @@ struct NewHistoryView: View {
                 viewModel: viewModel,
                 selectedCategories: $selectedCategories,
                 selectedAccounts: $selectedAccounts,
+                selectedGoalIds: $selectedGoalIds,
                 isPresented: $showingFiltersSheet
             )
         }
@@ -243,10 +275,25 @@ struct NewHistoryView: View {
                 transaction: transaction
             )
         }
+        .alert("Delete Transaction?", isPresented: Binding(
+            get: { transactionToDelete != nil },
+            set: { if !$0 { transactionToDelete = nil } }
+        )) {
+            Button("Delete", role: .destructive) {
+                if let tx = transactionToDelete {
+                    viewModel.deleteTransaction(tx)
+                    Haptics.medium()
+                }
+                transactionToDelete = nil
+            }
+            Button("Cancel", role: .cancel) { transactionToDelete = nil }
+        } message: {
+            Text("This cannot be undone.")
+        }
     }
     
     private var hasActiveAdvancedFilters: Bool {
-        !selectedCategories.isEmpty || !selectedAccounts.isEmpty
+        !selectedCategories.isEmpty || !selectedAccounts.isEmpty || !selectedGoalIds.isEmpty
     }
     
     private func toggleFilter(_ type: TransactionType) {
@@ -352,20 +399,40 @@ struct HistoryTransactionRow: View {
     let transaction: Transaction
     let account: Account?
     let category: Category?
+    let goal: Goal?
     let currency: String
-    
+
+    init(transaction: Transaction, account: Account?, category: Category?, goal: Goal? = nil, currency: String) {
+        self.transaction = transaction
+        self.account = account
+        self.category = category
+        self.goal = goal
+        self.currency = currency
+    }
+
     var body: some View {
         HStack(spacing: 12) {
-            TransactionIconBadge(category: category, account: account, size: 44)
-            
+            if let goal = goal {
+                ZStack {
+                    Circle()
+                        .fill(goal.colorValue.opacity(0.15))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: goal.icon)
+                        .font(.system(size: 18))
+                        .foregroundColor(goal.colorValue)
+                }
+            } else {
+                TransactionIconBadge(category: category, account: account, size: 44)
+            }
+
             VStack(alignment: .leading, spacing: 2) {
-                Text(transaction.title.isEmpty ? (category?.name ?? transaction.type.rawValue) : transaction.title)
+                Text(displayTitle)
                     .font(.system(size: 15, weight: .medium))
                     .foregroundColor(Color(uiColor: .label))
                     .lineLimit(1)
-                
+
                 HStack(spacing: 4) {
-                    Text(account?.name ?? "")
+                    Text(displaySubtitle)
                         .foregroundColor(Color(uiColor: .secondaryLabel))
                     if transaction.recurringId != nil {
                         Image(systemName: "repeat")
@@ -375,14 +442,14 @@ struct HistoryTransactionRow: View {
                 }
                 .font(.system(size: 12))
             }
-            
+
             Spacer()
-            
+
             VStack(alignment: .trailing, spacing: 2) {
                 Text(formatAmount)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(amountColor)
-                
+
                 Text(formatTime(transaction.date))
                     .font(.system(size: 11))
                     .foregroundColor(Color(uiColor: .tertiaryLabel))
@@ -390,7 +457,24 @@ struct HistoryTransactionRow: View {
         }
         .padding(.vertical, 4)
     }
-    
+
+    private var isWithdrawal: Bool { transaction.toAccountId != nil }
+
+    private var displayTitle: String {
+        guard goal != nil else {
+            return transaction.title.isEmpty ? (category?.name ?? transaction.type.rawValue) : transaction.title
+        }
+        return isWithdrawal ? "Savings Pot Withdraw" : "Savings Pot Add"
+    }
+
+    private var displaySubtitle: String {
+        guard let goal = goal else { return account?.name ?? "" }
+        let accountName = account?.name ?? "Account"
+        return isWithdrawal
+            ? "\(goal.title) → \(accountName)"
+            : "\(accountName) → \(goal.title)"
+    }
+
     private var amountColor: Color {
         switch transaction.type {
         case .expense: return Theme.Colors.expense
@@ -398,7 +482,7 @@ struct HistoryTransactionRow: View {
         case .transfer: return Theme.Colors.transfer
         }
     }
-    
+
     private var formatAmount: String {
         let prefix = transaction.type == .income ? "+" : transaction.type == .expense ? "-" : ""
         return "\(prefix)\(formatCurrency(transaction.amount, currency: currency))"
@@ -448,6 +532,19 @@ struct TransactionDetailView: View {
     
     private var availableCategories: [Category] {
         editedType == .income ? viewModel.incomeCategories : viewModel.expenseCategories
+    }
+
+    private var potGoal: Goal? {
+        guard let goalId = liveTransaction.goalId else { return nil }
+        return viewModel.goals.first(where: { $0.id == goalId })
+    }
+
+    // For withdrawals, accountId is a virtual goal UUID. Use toAccountId for the real account.
+    private var resolvedAccount: Account? {
+        if potGoal != nil, let toId = liveTransaction.toAccountId {
+            return viewModel.getAccount(by: toId)
+        }
+        return account
     }
     
     var body: some View {
@@ -504,8 +601,19 @@ struct TransactionDetailView: View {
     // MARK: - Header
     private var headerSection: some View {
         VStack(spacing: 8) {
-            TransactionIconBadge(category: category, account: account, size: 64)
-            
+            if let pot = potGoal {
+                ZStack {
+                    Circle()
+                        .fill(pot.colorValue.opacity(0.15))
+                        .frame(width: 64, height: 64)
+                    Image(systemName: pot.icon)
+                        .font(.system(size: 28))
+                        .foregroundColor(pot.colorValue)
+                }
+            } else {
+                TransactionIconBadge(category: category, account: account, size: 64)
+            }
+
             if isEditing {
                 TextField("0", text: $editedAmount)
                     .font(.system(size: 34, weight: .bold, design: .rounded))
@@ -517,8 +625,10 @@ struct TransactionDetailView: View {
                     .font(.system(size: 34, weight: .bold, design: .rounded))
                     .foregroundColor(typeColor)
             }
-            
-            Text(displayType.rawValue)
+
+            Text(potGoal != nil
+                    ? (liveTransaction.toAccountId != nil ? "Savings Pot Withdraw" : "Savings Pot Add")
+                    : displayType.rawValue)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(typeColor.opacity(0.8))
                 .padding(.horizontal, 10)
@@ -536,12 +646,23 @@ struct TransactionDetailView: View {
         VStack(spacing: 0) {
             DetailRow(label: "Title", value: transaction.title.isEmpty ? "-" : transaction.title)
             Divider().padding(.leading, 16)
-            DetailRow(label: "Category", value: category?.name ?? "-", icon: category?.icon, iconColor: category?.colorValue)
-            Divider().padding(.leading, 16)
-            DetailRow(label: "Account", value: account?.name ?? "-", icon: account?.icon, iconColor: account?.colorValue)
-            if transaction.type == .transfer, let to = toAccount {
+            if let pot = potGoal {
+                DetailRow(label: "Savings Pot", value: pot.title, icon: pot.icon, iconColor: pot.colorValue)
+                if let acc = resolvedAccount {
+                    Divider().padding(.leading, 16)
+                    DetailRow(
+                        label: liveTransaction.toAccountId != nil ? "To Account" : "From Account",
+                        value: acc.name, icon: acc.icon, iconColor: acc.colorValue
+                    )
+                }
+            } else {
+                DetailRow(label: "Category", value: category?.name ?? "-", icon: category?.icon, iconColor: category?.colorValue)
                 Divider().padding(.leading, 16)
-                DetailRow(label: "To Account", value: to.name, icon: to.icon, iconColor: to.colorValue)
+                DetailRow(label: "Account", value: account?.name ?? "-", icon: account?.icon, iconColor: account?.colorValue)
+                if transaction.type == .transfer, let to = toAccount {
+                    Divider().padding(.leading, 16)
+                    DetailRow(label: "To Account", value: to.name, icon: to.icon, iconColor: to.colorValue)
+                }
             }
             Divider().padding(.leading, 16)
             DetailRow(label: "Date", value: formatFullDate(transaction.date))
@@ -1008,9 +1129,10 @@ struct AdvancedFiltersSheet: View {
     @ObservedObject var viewModel: BalanceViewModel
     @Binding var selectedCategories: Set<UUID>
     @Binding var selectedAccounts: Set<UUID>
+    @Binding var selectedGoalIds: Set<UUID>
     @Binding var isPresented: Bool
     @Environment(\.dismiss) private var dismiss
-    
+
     var body: some View {
         NavigationStack {
             List {
@@ -1041,7 +1163,37 @@ struct AdvancedFiltersSheet: View {
                         }
                     }
                 }
-                
+
+                if !viewModel.envelopes.isEmpty {
+                    Section("Savings Pots") {
+                        ForEach(viewModel.envelopes) { pot in
+                            Button(action: {
+                                if selectedGoalIds.contains(pot.id) {
+                                    selectedGoalIds.remove(pot.id)
+                                } else {
+                                    selectedGoalIds.insert(pot.id)
+                                }
+                            }) {
+                                HStack(spacing: 10) {
+                                    Image(systemName: pot.icon)
+                                        .font(.system(size: 16))
+                                        .foregroundColor(pot.colorValue)
+                                        .frame(width: 28)
+                                    Text(pot.title)
+                                        .font(.system(size: 15))
+                                        .foregroundColor(Color(uiColor: .label))
+                                    Spacer()
+                                    if selectedGoalIds.contains(pot.id) {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundColor(Theme.Colors.primary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Section("Categories") {
                     ForEach(viewModel.categories) { category in
                         Button(action: {
@@ -1077,6 +1229,7 @@ struct AdvancedFiltersSheet: View {
                     Button("Clear All") {
                         selectedCategories.removeAll()
                         selectedAccounts.removeAll()
+                        selectedGoalIds.removeAll()
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {

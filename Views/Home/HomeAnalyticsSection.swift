@@ -149,13 +149,14 @@ struct HomeCalendarSection: View {
         }
     }
 
-    private func eventsForDate(_ date: Date) -> (hasIncome: Bool, hasExpense: Bool, hasRecurring: Bool, hasGoal: Bool) {
+    private func eventsForDate(_ date: Date) -> (hasIncome: Bool, hasExpense: Bool, hasTransfer: Bool, hasRecurring: Bool, hasGoal: Bool) {
         let txs = transactionsFor(date)
         let hasIncome = txs.contains { $0.type == .income }
         let hasExpense = txs.contains { $0.type == .expense }
+        let hasTransfer = txs.contains { $0.type == .transfer }
         let hasRecurring = !recurringDueOn(date).isEmpty
         let hasGoal = !goalsDueOn(date).isEmpty
-        return (hasIncome, hasExpense, hasRecurring, hasGoal)
+        return (hasIncome, hasExpense, hasTransfer, hasRecurring, hasGoal)
     }
 
     private var monthLabel: String {
@@ -170,8 +171,24 @@ struct HomeCalendarSection: View {
 
         for tx in transactionsFor(date) {
             let cat = viewModel.categories.first { $0.id == tx.categoryId }
-            let icon = cat?.icon ?? (tx.type == .income ? "arrow.down" : "arrow.up")
-            let color = tx.type == .income ? Theme.Colors.income : Theme.Colors.expense
+            let icon: String
+            let color: Color
+            switch tx.type {
+            case .income:
+                icon = cat?.icon ?? "arrow.down.circle.fill"
+                color = Theme.Colors.income
+            case .expense:
+                icon = cat?.icon ?? "arrow.up.circle.fill"
+                color = Theme.Colors.expense
+            case .transfer:
+                if let gid = tx.goalId, let pot = viewModel.goals.first(where: { $0.id == gid }) {
+                    icon = pot.icon
+                    color = pot.colorValue
+                } else {
+                    icon = "arrow.left.arrow.right"
+                    color = Theme.Colors.transfer
+                }
+            }
             events.append((icon: icon, label: "\(tx.title) — \(formatCurrency(tx.amount, currency: viewModel.appState.selectedCurrency))", color: color))
         }
 
@@ -225,6 +242,7 @@ struct HomeCalendarSection: View {
             HStack(spacing: 12) {
                 CalendarLegendDot(color: Theme.Colors.income, label: "Income")
                 CalendarLegendDot(color: Theme.Colors.expense, label: "Expense")
+                CalendarLegendDot(color: Theme.Colors.transfer, label: "Transfer")
                 CalendarLegendDot(color: Theme.Colors.recurring, label: "Recurring")
                 CalendarLegendDot(color: Theme.Colors.goals, label: "Goal")
             }
@@ -264,6 +282,7 @@ struct HomeCalendarSection: View {
                             HStack(spacing: 2) {
                                 if events.hasIncome { Circle().fill(Theme.Colors.income).frame(width: 4, height: 4) }
                                 if events.hasExpense { Circle().fill(Theme.Colors.expense).frame(width: 4, height: 4) }
+                                if events.hasTransfer { Circle().fill(Theme.Colors.transfer).frame(width: 4, height: 4) }
                                 if events.hasRecurring { Circle().fill(Theme.Colors.recurring).frame(width: 4, height: 4) }
                                 if events.hasGoal { Circle().fill(Theme.Colors.goals).frame(width: 4, height: 4) }
                             }
@@ -312,12 +331,13 @@ struct HomeCalendarSection: View {
         .cornerRadius(Theme.CornerRadius.large)
     }
 
-    private func accessibilityLabelFor(date: Date, events: (hasIncome: Bool, hasExpense: Bool, hasRecurring: Bool, hasGoal: Bool), isToday: Bool) -> String {
+    private func accessibilityLabelFor(date: Date, events: (hasIncome: Bool, hasExpense: Bool, hasTransfer: Bool, hasRecurring: Bool, hasGoal: Bool), isToday: Bool) -> String {
         var parts: [String] = []
         let day = cal.component(.day, from: date)
         parts.append(isToday ? "Today, \(day)" : "\(day)")
         if events.hasIncome { parts.append("income") }
         if events.hasExpense { parts.append("expense") }
+        if events.hasTransfer { parts.append("transfer") }
         if events.hasRecurring { parts.append("recurring bill") }
         if events.hasGoal { parts.append("goal deadline") }
         return parts.joined(separator: ", ")

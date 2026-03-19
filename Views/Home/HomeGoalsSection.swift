@@ -3,6 +3,8 @@ import SwiftUI
 // MARK: - Goals Summary Section
 struct GoalsSummarySection: View {
     @ObservedObject var viewModel: BalanceViewModel
+    @State private var navigateToGoals = false
+    @State private var selectedGoal: Goal? = nil
 
     private var activeGoals: [Goal] {
         viewModel.goals.filter { $0.goalType == .goal && !$0.isCompleted }
@@ -21,12 +23,10 @@ struct GoalsSummarySection: View {
 
                 Spacer()
 
-                NavigationLink(destination: GoalsListView(viewModel: viewModel)) {
-                    Text("See All")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Theme.Colors.primary)
-                }
-                .accessibilityLabel("See all goals")
+                Button("See All") { navigateToGoals = true }
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Theme.Colors.primary)
+                    .accessibilityLabel("See all goals")
             }
 
             if activeGoals.isEmpty {
@@ -49,7 +49,14 @@ struct GoalsSummarySection: View {
             } else {
                 VStack(spacing: Theme.Spacing.sm) {
                     ForEach(activeGoals.prefix(3)) { goal in
-                        GoalItemRow(goal: goal, currency: viewModel.appState.selectedCurrency)
+                        Button { selectedGoal = goal } label: {
+                            GoalItemRow(
+                                goal: goal,
+                                currency: viewModel.appState.selectedCurrency,
+                                effectiveAmount: viewModel.effectiveCurrentAmount(for: goal)
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
 
@@ -70,6 +77,12 @@ struct GoalsSummarySection: View {
         .padding(18)
         .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(Theme.CornerRadius.large)
+        .navigationDestination(isPresented: $navigateToGoals) {
+            GoalsListView(viewModel: viewModel)
+        }
+        .navigationDestination(item: $selectedGoal) { goal in
+            GoalDetailView(viewModel: viewModel, goal: goal)
+        }
     }
 }
 
@@ -77,20 +90,39 @@ struct GoalsSummarySection: View {
 struct GoalItemRow: View {
     let goal: Goal
     let currency: String
+    var effectiveAmount: Double
 
     private var progress: Double {
         guard goal.targetAmount > 0 else { return 0 }
-        return min(1, goal.currentAmount / goal.targetAmount)
+        return min(1, effectiveAmount / goal.targetAmount)
     }
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: goal.icon)
-                .font(.system(size: 14))
-                .foregroundColor(Color(hex: goal.color))
-                .frame(width: 34, height: 34)
-                .background(Color(hex: goal.color).opacity(0.1))
-                .clipShape(Circle())
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: goal.icon)
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(hex: goal.color))
+                    .frame(width: 34, height: 34)
+                    .background(Color(hex: goal.color).opacity(0.1))
+                    .clipShape(Circle())
+
+                // Streak flame badge
+                if goal.streak >= 2 {
+                    HStack(spacing: 1) {
+                        Text("🔥")
+                            .font(.system(size: 8))
+                        Text("\(goal.streak)")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    .padding(.horizontal, 3)
+                    .padding(.vertical, 2)
+                    .background(Color.orange)
+                    .clipShape(Capsule())
+                    .offset(x: 6, y: -4)
+                }
+            }
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
@@ -120,7 +152,7 @@ struct GoalItemRow: View {
                 .frame(height: 4)
 
                 HStack {
-                    Text(formatCurrency(goal.currentAmount, currency: currency))
+                    Text(formatCurrency(effectiveAmount, currency: currency))
                         .font(.system(size: 11))
                         .foregroundColor(Color(uiColor: .secondaryLabel))
 
@@ -133,7 +165,7 @@ struct GoalItemRow: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(goal.title), \(Int(progress * 100))% complete, \(formatCurrency(goal.currentAmount, currency: currency)) of \(formatCurrency(goal.targetAmount, currency: currency))")
+        .accessibilityLabel("\(goal.title), \(Int(progress * 100))% complete, \(formatCurrency(effectiveAmount, currency: currency)) of \(formatCurrency(goal.targetAmount, currency: currency))")
     }
 }
 

@@ -15,8 +15,11 @@ class BalanceViewModel: ObservableObject {
     @Published var transactions: [Transaction] = []
     @Published var goals: [Goal] = []
     @Published var recurringTransactions: [RecurringTransaction] = []
+    @Published var debts: [Debt] = []
     @Published var userProfile: UserProfile = UserProfile()
     @Published var appState: AppState = AppState()
+    /// Set when a contribution crosses a 25/50/75/100% milestone. Views observe this to show a celebration banner.
+    @Published var recentMilestone: (goalId: UUID, pct: Int)? = nil
 
     /// Cached weekly balance history — updated automatically after any transaction change.
     @Published private(set) var weeklyHistory: [(weekLabel: String, endDate: Date, balance: Double)] = []
@@ -39,6 +42,7 @@ class BalanceViewModel: ObservableObject {
         static let transactions  = "balance_transactions"
         static let goals         = "balance_goals"
         static let recurring     = "balance_recurring"
+        static let debts         = "balance_debts"
         static let userProfile   = "balance_userProfile"
         static let appState      = "balance_appState"
     }
@@ -50,6 +54,7 @@ class BalanceViewModel: ObservableObject {
         static let transactions  = "transactions.json"
         static let goals         = "goals.json"
         static let recurring     = "recurring.json"
+        static let debts         = "debts.json"
         static let userProfile   = "userProfile.json"
         static let appState      = "appState.json"
     }
@@ -77,7 +82,12 @@ class BalanceViewModel: ObservableObject {
         let accountsTotal = accounts.reduce(0) { $0 + balanceForAccount($1) }
         return accountsTotal + totalEnvelopeBalance
     }
-    
+
+    /// Net worth = all accounts + savings pots − active debts owed by the user
+    var netWorth: Double {
+        totalBalance - totalOutstandingOwed
+    }
+
     var monthlyIncome: Double {
         let calendar = Calendar.current
         let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) ?? Date()
@@ -417,13 +427,139 @@ class BalanceViewModel: ObservableObject {
     }
     
     func deleteGoal(_ goal: Goal) {
+        // Null out goalId on linked transactions so orphaned transfers don't ghost account balances
+        let hasLinkedTx = transactions.contains { $0.goalId == goal.id }
+        if hasLinkedTx {
+            transactions = transactions.map { tx in
+                guard tx.goalId == goal.id else { return tx }
+                var updated = tx
+                updated.goalId = nil
+                return updated
+            }
+            saveTransactions()
+        }
         goals.removeAll { $0.id == goal.id }
         saveGoals()
+    }
+
+    // MARK: - Debt Functions
+
+    func addDebt(_ debt: Debt) {
+        debts.append(debt)
+        saveDebts()
+    }
+
+    func updateDebt(_ debt: Debt) {
+        if let index = debts.firstIndex(where: { $0.id == debt.id }) {
+            debts[index] = debt
+            saveDebts()
+        }
+    }
+
+    func deleteDebt(_ debt: Debt) {
+        debts.removeAll { $0.id == debt.id }
+        saveDebts()
+    }
+
+    func recordDebtPayment(_ payment: DebtPayment, debtId: UUID, fromAccountId: UUID? = nil) {
+        guard let index = debts.firstIndex(where: { $0.id == debtId }) else { return }
+        let debt = debts[index]
+        debts[index].payments.append(payment)
+        debts[index].paidAmount += payment.amount
+        if debts[index].paidAmount >= debts[index].totalAmount {
+            debts[index].isSettled = true
+        }
+        saveDebts()
+
+        // Create a transaction to reflect the actual account impact
+        if let accountId = fromAccountId {
+            let tx = Transaction(
+                amount: payment.amount,
+                type: debt.type == .iOwe ? .expense : .income,
+                accountId: accountId,
+                title: "\(debt.title) — \(debt.type == .iOwe ? "Payment" : "Receipt")",
+                note: payment.note,
+                date: payment.date
+            )
+            addTransaction(tx)
+        }
+    }
+
+    // MARK: - Debt Analytics
+
+    var activeDebts: [Debt] { debts.filter { !$0.isSettled } }
+    var overdueDebts: [Debt] { debts.filter { $0.isOverdue } }
+
+    var upcomingDebts: [Debt] {
+        let cutoff = Calendar.current.date(byAdding: .day, value: 30, to: Date()) ?? Date()
+        return debts.filter { !$0.isSettled && ($0.dueDate.map { $0 <= cutoff } ?? false) }
+    }
+
+    var totalOutstandingOwed: Double {
+        debts.filter { !$0.isSettled && $0.type == .iOwe }.reduce(0) { $0 + $1.remaining }
+    }
+
+    var totalOutstandingOwedToMe: Double {
+        debts.filter { !$0.isSettled && $0.type == .owedToMe }.reduce(0) { $0 + $1.remaining }
+    }
+
+    var debtRecommendations: [DebtRecommendation] {
+        var recs: [DebtRecommendation] = []
+        let active = activeDebts
+
+        // Overdue I-Owe debts (urgent)
+        for d in overdueDebts.filter({ $0.type == .iOwe }).prefix(2) {
+            let days = Calendar.current.dateComponents([.day], from: d.dueDate ?? Date(), to: Date()).day ?? 0
+            recs.append(DebtRecommendation(
+                icon: "exclamationmark.triangle.fill",
+                message: "Pay \"\(d.title)\" — overdue by \(days) day\(days == 1 ? "" : "s")",
+                severity: .warning, debtId: d.id))
+        }
+
+        // Overdue owed-to-me (follow up)
+        for d in overdueDebts.filter({ $0.type == .owedToMe }).prefix(1) {
+            let days = Calendar.current.dateComponents([.day], from: d.dueDate ?? Date(), to: Date()).day ?? 0
+            recs.append(DebtRecommendation(
+                icon: "person.fill.questionmark",
+                message: "Follow up with \(d.person.isEmpty ? "them" : d.person) — overdue \(days)d",
+                severity: .warning, debtId: d.id))
+        }
+
+        // Due within 7 days
+        let soon = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
+        for d in active.filter({ !$0.isOverdue && ($0.dueDate.map { $0 <= soon } ?? false) && $0.type == .iOwe }).prefix(1) {
+            let days = Calendar.current.dateComponents([.day], from: Date(), to: d.dueDate ?? Date()).day ?? 0
+            recs.append(DebtRecommendation(
+                icon: "calendar.badge.exclamationmark",
+                message: "\"\(d.title)\" due in \(days) day\(days == 1 ? "" : "s")",
+                severity: .neutral, debtId: d.id))
+        }
+
+        // Highest interest rate
+        if let highestInterest = active.filter({ $0.type == .iOwe && ($0.interestRate ?? 0) > 0 })
+            .max(by: { ($0.interestRate ?? 0) < ($1.interestRate ?? 0) }) {
+            let rate = Int((highestInterest.interestRate ?? 0).rounded())
+            recs.append(DebtRecommendation(
+                icon: "chart.line.uptrend.xyaxis",
+                message: "Pay \"\(highestInterest.title)\" first — \(rate)% interest",
+                severity: .neutral, debtId: highestInterest.id))
+        }
+
+        // All clear
+        if active.isEmpty && !debts.isEmpty {
+            recs.append(DebtRecommendation(
+                icon: "checkmark.seal.fill",
+                message: "All debts settled — great job!",
+                severity: .positive, debtId: nil))
+        }
+
+        return recs
     }
     
     func contributeToGoal(_ goal: Goal, amount: Double, fromAccountId: UUID? = nil) {
         if let index = goals.firstIndex(where: { $0.id == goal.id }) {
             var updated = goal
+            let prevProgress = updated.targetAmount > 0 ? updated.currentAmount / updated.targetAmount : 0
             updated.currentAmount += amount
             if updated.currentAmount < 0 { updated.currentAmount = 0 }
             if updated.goalType == .goal && updated.targetAmount > 0 && updated.currentAmount >= updated.targetAmount {
@@ -431,7 +567,25 @@ class BalanceViewModel: ObservableObject {
             }
             goals[index] = updated
             saveGoals()
-            
+
+            // Streak: only for manual goals with a positive contribution
+            if amount > 0 && updated.linkedAccountId == nil {
+                updateGoalStreak(for: goal.id)
+            }
+
+            // Milestone detection: check if we just crossed 25/50/75/100%
+            if amount > 0 && updated.targetAmount > 0 {
+                let newProgress = updated.currentAmount / updated.targetAmount
+                for pct in [1.0, 0.75, 0.5, 0.25] {
+                    if prevProgress < pct && newProgress >= pct {
+                        DispatchQueue.main.async {
+                            self.recentMilestone = (goalId: goal.id, pct: Int(pct * 100))
+                        }
+                        break
+                    }
+                }
+            }
+
             if let accountId = fromAccountId, abs(amount) > 0 {
                 let isWithdraw = amount < 0
                 let typeName = goal.goalType == .envelope ? "Savings Pot" : "Goal"
@@ -440,15 +594,53 @@ class BalanceViewModel: ObservableObject {
                     : "Add to \(goal.title)"
                 let transaction = Transaction(
                     amount: abs(amount),
-                    type: isWithdraw ? .income : .expense,
-                    accountId: accountId,
+                    type: .transfer,
+                    // Contribution: debit fromAccount (accountId = source, toAccountId = nil → pot)
+                    // Withdrawal:   credit fromAccount (accountId = goal.id acts as virtual pot UUID
+                    //               matching no real account, toAccountId = destination account)
+                    accountId: isWithdraw ? goal.id : accountId,
+                    toAccountId: isWithdraw ? accountId : nil,
                     title: title,
-                    note: "\(typeName) contribution",
+                    note: "\(typeName) transfer",
                     goalId: goal.id
                 )
                 addTransaction(transaction)
             }
         }
+    }
+
+    func updateGoalStreak(for goalId: UUID) {
+        guard let idx = goals.firstIndex(where: { $0.id == goalId }) else { return }
+        var goal = goals[idx]
+        let cal = Calendar.current
+        let now = Date()
+
+        if let last = goal.lastStreakDate {
+            let sameWeek = cal.isDate(last, equalTo: now, toGranularity: .weekOfYear)
+            let prevWeek: Bool = {
+                guard let prevWeekDate = cal.date(byAdding: .weekOfYear, value: -1, to: now) else { return false }
+                return cal.isDate(last, equalTo: prevWeekDate, toGranularity: .weekOfYear)
+            }()
+            if sameWeek { return }
+            else if prevWeek { goal.streak += 1 }
+            else { goal.streak = 1 }
+        } else {
+            goal.streak = 1
+        }
+
+        goal.longestStreak = max(goal.longestStreak, goal.streak)
+        goal.lastStreakDate = now
+        goals[idx] = goal
+        saveGoals()
+    }
+
+    /// Suggested emergency fund target = 3× average monthly expenses (last 3 months).
+    var emergencyFundSuggestedTarget: Double {
+        let threeMonthsAgo = Calendar.current.date(byAdding: .month, value: -3, to: Date()) ?? Date()
+        let expenses = transactions.filter { $0.type == .expense && $0.date >= threeMonthsAgo }
+        let total = expenses.reduce(0) { $0 + $1.amount }
+        let monthly = total / 3
+        return monthly * 3   // 3-month cushion
     }
     
     // MARK: - Envelope / Savings Pot Helpers
@@ -931,10 +1123,91 @@ class BalanceViewModel: ObservableObject {
             ))
         }
         
-        // Limit to 3 insights for UI cleanliness
-        return Array(insights.prefix(3))
+        // 7. Spending anomaly — category spending 2× or more vs previous period
+        for stat in topCategoryStats.prefix(5) {
+            if let delta = stat.deltaFromPrevious, delta > 1.0 {
+                let mult = Int((delta + 1).rounded())
+                insights.append(Insight(
+                    type: .category,
+                    title: "Unusual spend: \(stat.category.name)",
+                    message: "You've spent \(mult)× more on \(stat.category.name) than last \(timeLabel).",
+                    severity: .warning,
+                    relatedCategoryId: stat.category.id
+                ))
+                break
+            }
+        }
+
+        // 8. Overdue debts
+        let overdueCount = overdueDebts.count
+        if overdueCount > 0 {
+            insights.append(Insight(
+                type: .habit,
+                title: "\(overdueCount) overdue debt\(overdueCount == 1 ? "" : "s")",
+                message: overdueCount == 1 ? "You have a payment past its due date." : "You have \(overdueCount) payments past their due dates.",
+                severity: .warning,
+                icon: "creditcard.fill"
+            ))
+        }
+
+        // 9. Goal: no contributions in 30+ days
+        let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+        let activeManualGoals = goals.filter { $0.goalType == .goal && !$0.isCompleted && $0.linkedAccountId == nil && $0.targetAmount > 0 }
+        for goal in activeManualGoals.prefix(3) {
+            let recent = transactions.filter { $0.goalId == goal.id && $0.date > thirtyDaysAgo && $0.toAccountId == nil }
+            if recent.isEmpty && goal.currentAmount < goal.targetAmount {
+                insights.append(Insight(
+                    type: .goal,
+                    title: "Goal reminder",
+                    message: "No contributions to \"\(goal.title)\" in 30 days.",
+                    severity: .warning,
+                    icon: "exclamationmark.circle.fill"
+                ))
+                break
+            }
+        }
+
+        // 10. Goal on track / behind
+        for goal in goals.filter({ $0.goalType == .goal && !$0.isCompleted && $0.deadline != nil }).prefix(2) {
+            switch status(for: goal) {
+            case .onTrack:
+                if let eta = goalETA(for: goal) {
+                    let formatter = DateFormatter(); formatter.dateStyle = .medium
+                    insights.append(Insight(
+                        type: .goal,
+                        title: "On track: \(goal.title)",
+                        message: "You're on pace to reach your goal by \(formatter.string(from: eta)).",
+                        severity: .positive,
+                        icon: "checkmark.seal.fill"
+                    ))
+                }
+            case .behind:
+                insights.append(Insight(
+                    type: .goal,
+                    title: "Behind: \(goal.title)",
+                    message: "\"\(goal.title)\" is falling behind schedule. Try contributing more.",
+                    severity: .warning,
+                    icon: "clock.badge.exclamationmark.fill"
+                ))
+            default: break
+            }
+            break  // max one goal status insight
+        }
+
+        // Limit to 5 insights for UI
+        return Array(insights.prefix(5))
     }
     
+    // MARK: - Debt Recommendation Type
+
+    struct DebtRecommendation: Identifiable {
+        let id = UUID()
+        let icon: String
+        let message: String
+        let severity: InsightSeverity
+        let debtId: UUID?
+    }
+
     /// Format currency compactly for insights
     private func formatCurrencyCompact(_ amount: Double) -> String {
         let formatter = NumberFormatter()
@@ -944,6 +1217,58 @@ class BalanceViewModel: ObservableObject {
         return formatter.string(from: NSNumber(value: amount)) ?? "$\(Int(amount))"
     }
     
+    // MARK: - Predictive Analytics
+
+    /// Project end-of-month spending based on the daily average so far this month.
+    var monthEndForecast: (projected: Double, dailyAvg: Double, daysRemaining: Int, daysPassed: Int, totalDays: Int)? {
+        let cal = Calendar.current
+        guard let interval = TimeRange.monthly.dateInterval() else { return nil }
+        let daysPassed = max(cal.dateComponents([.day], from: interval.start, to: Date()).day ?? 1, 1)
+        let totalDays  = cal.dateComponents([.day], from: interval.start, to: interval.end).day ?? 30
+        let remaining  = max(totalDays - daysPassed, 0)
+        let spent = transactions.filter {
+            $0.type == .expense && $0.date >= interval.start && $0.date < interval.end
+        }.reduce(0) { $0 + $1.amount }
+        let dailyAvg = spent / Double(daysPassed)
+        return (projected: spent + dailyAvg * Double(remaining),
+                dailyAvg: dailyAvg,
+                daysRemaining: remaining,
+                daysPassed: daysPassed,
+                totalDays: totalDays)
+    }
+
+    /// Returns the effective current amount for a goal.
+    /// For account-linked goals, reflects the live account balance.
+    func effectiveCurrentAmount(for goal: Goal) -> Double {
+        if let accountId = goal.linkedAccountId,
+           let account = accounts.first(where: { $0.id == accountId }) {
+            return balanceForAccount(account)
+        }
+        return goal.currentAmount
+    }
+
+    /// Estimate when a goal will be reached based on the last 3 months of contributions.
+    func goalETA(for goal: Goal) -> Date? {
+        let current = effectiveCurrentAmount(for: goal)
+        guard !goal.isCompleted, goal.targetAmount > current, current > 0 else { return nil }
+        let cal = Calendar.current
+        let threeMonthsAgo = cal.date(byAdding: .month, value: -3, to: Date()) ?? Date()
+        let months = max(cal.dateComponents([.month], from: threeMonthsAgo, to: Date()).month ?? 1, 1)
+        let monthlyAvg: Double
+        if goal.linkedAccountId != nil {
+            // For account-linked goals, estimate monthly growth from balance history
+            let oldBalance = weeklyBalanceHistory(weeks: 13).first.map { $0.balance } ?? current
+            monthlyAvg = max((current - oldBalance) / 3.0, 0)
+        } else {
+            let contributions = transactions.filter { $0.goalId == goal.id && $0.date >= threeMonthsAgo && $0.toAccountId == nil }
+            guard !contributions.isEmpty else { return nil }
+            monthlyAvg = contributions.reduce(0) { $0 + $1.amount } / Double(months)
+        }
+        guard monthlyAvg > 0 else { return nil }
+        let monthsLeft = (goal.targetAmount - current) / monthlyAvg
+        return cal.date(byAdding: .month, value: Int(ceil(monthsLeft)), to: Date())
+    }
+
     // MARK: - Greeting
     
     var greetingText: String {
@@ -1009,7 +1334,7 @@ class BalanceViewModel: ObservableObject {
 
     private func loadFromUserDefaults() {
         loadAccounts(); loadCategories(); loadTransactions()
-        loadGoals(); loadRecurring(); loadUserProfile(); loadAppState()
+        loadGoals(); loadRecurring(); loadDebts(); loadUserProfile(); loadAppState()
     }
 
     private func loadWithiCloudMerge() {
@@ -1018,6 +1343,7 @@ class BalanceViewModel: ObservableObject {
         loadMerged([Transaction].self,          localKey: Keys.transactions, iCloudFile: iCloudFiles.transactions) { self.transactions = $0 }
         loadMerged([Goal].self,                 localKey: Keys.goals,        iCloudFile: iCloudFiles.goals)        { self.goals = $0 }
         loadMerged([RecurringTransaction].self, localKey: Keys.recurring,    iCloudFile: iCloudFiles.recurring)    { self.recurringTransactions = $0 }
+        loadMerged([Debt].self,                 localKey: Keys.debts,        iCloudFile: iCloudFiles.debts)        { self.debts = $0 }
         loadMerged(UserProfile.self,            localKey: Keys.userProfile,  iCloudFile: iCloudFiles.userProfile)  { self.userProfile = $0 }
         loadMerged(AppState.self,               localKey: Keys.appState,     iCloudFile: iCloudFiles.appState)     { self.appState = $0 }
     }
@@ -1156,6 +1482,21 @@ class BalanceViewModel: ObservableObject {
             defaults.set(encoded, forKey: Keys.recurring)
             defaults.set(Date(), forKey: Keys.recurring + "_date")
             if sync.isAvailable { sync.write(encoded, filename: iCloudFiles.recurring); lastSyncDate = Date() }
+        }
+    }
+
+    private func loadDebts() {
+        if let data = defaults.data(forKey: Keys.debts),
+           let decoded = try? decoder.decode([Debt].self, from: data) {
+            debts = decoded
+        }
+    }
+
+    private func saveDebts() {
+        if let encoded = try? encoder.encode(debts) {
+            defaults.set(encoded, forKey: Keys.debts)
+            defaults.set(Date(), forKey: Keys.debts + "_date")
+            if sync.isAvailable { sync.write(encoded, filename: iCloudFiles.debts); lastSyncDate = Date() }
         }
     }
 

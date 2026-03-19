@@ -4,12 +4,12 @@ import SwiftUI
 struct SavingsPotsSummarySection: View {
     @ObservedObject var viewModel: BalanceViewModel
     @State private var showAddPot = false
+    @State private var selectedPot: Goal? = nil
+    @State private var navigateToPots = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            HomeSectionHeader(title: "Savings Pots") {
-                showAddPot = true
-            }
+            HomeSectionHeader(title: "Savings Pots", action: viewModel.envelopes.isEmpty ? nil : { navigateToPots = true })
 
             if viewModel.envelopes.isEmpty {
                 VStack(spacing: 10) {
@@ -45,7 +45,7 @@ struct SavingsPotsSummarySection: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(viewModel.envelopes) { pot in
-                            NavigationLink(destination: GoalDetailView(viewModel: viewModel, goal: pot)) {
+                            Button { selectedPot = pot } label: {
                                 VStack(spacing: Theme.Spacing.xs) {
                                     Image(systemName: pot.icon)
                                         .font(.system(size: 18))
@@ -70,6 +70,7 @@ struct SavingsPotsSummarySection: View {
                                 .background(Color(uiColor: .secondarySystemGroupedBackground))
                                 .cornerRadius(14)
                             }
+                            .buttonStyle(.plain)
                             .accessibilityLabel("\(pot.title): \(formatCurrency(pot.currentAmount, currency: viewModel.appState.selectedCurrency))")
                         }
 
@@ -99,6 +100,12 @@ struct SavingsPotsSummarySection: View {
                     }
                 }
             }
+        }
+        .navigationDestination(item: $selectedPot) { pot in
+            GoalDetailView(viewModel: viewModel, goal: pot)
+        }
+        .navigationDestination(isPresented: $navigateToPots) {
+            GoalsListView(viewModel: viewModel)
         }
         .sheet(isPresented: $showAddPot) {
             NavigationStack {

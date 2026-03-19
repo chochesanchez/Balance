@@ -56,7 +56,12 @@ struct NewHomeView: View {
                 // 9. Recurring
                 RecurringSummarySection(viewModel: viewModel)
 
-                // 10. Daily Tips
+                // 10. Debts
+                if !viewModel.activeDebts.isEmpty {
+                    HomeDebtSection(viewModel: viewModel)
+                }
+
+                // 11. Daily Tips
                 DailyTipsSection()
             }
             .padding(.horizontal, Theme.Spacing.md)

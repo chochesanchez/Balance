@@ -340,6 +340,35 @@ enum GoalType: String, Codable, CaseIterable {
     case envelope = "Savings Pot"
 }
 
+// MARK: - Goal Sub-Type
+enum GoalSubType: String, Codable, CaseIterable {
+    case savings    = "Savings"
+    case purchase   = "Purchase"
+    case balance    = "Balance"
+    case emergency  = "Emergency Fund"
+    case debtPayoff = "Debt Payoff"
+
+    var icon: String {
+        switch self {
+        case .savings:    return "banknote.fill"
+        case .purchase:   return "bag.fill"
+        case .balance:    return "building.columns.fill"
+        case .emergency:  return "shield.fill"
+        case .debtPayoff: return "creditcard.fill"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .savings:    return "Save towards a specific amount"
+        case .purchase:   return "Save to buy something specific"
+        case .balance:    return "Reach a target account balance"
+        case .emergency:  return "Build a safety net (3–6 months)"
+        case .debtPayoff: return "Track paying off a debt"
+        }
+    }
+}
+
 // MARK: - Goal Model
 struct Goal: Identifiable, Codable, Hashable {
     let id: UUID
@@ -354,7 +383,19 @@ struct Goal: Identifiable, Codable, Hashable {
     var isCompleted: Bool
     var goalType: GoalType
     var createdAt: Date
-    
+    var linkedAccountId: UUID?   // nil = manual goal; set = auto-tracks the account's balance
+
+    // Sub-type (backward compatible — nil decodes as .savings)
+    var subType: GoalSubType
+    // Purchase sub-type: item being saved for
+    var itemName: String?
+    // Streak tracking
+    var streak: Int
+    var longestStreak: Int
+    var lastStreakDate: Date?
+    // Debt Payoff sub-type: linked debt
+    var linkedDebtId: UUID?
+
     init(
         id: UUID = UUID(),
         title: String,
@@ -367,7 +408,14 @@ struct Goal: Identifiable, Codable, Hashable {
         imageData: Data? = nil,
         isCompleted: Bool = false,
         goalType: GoalType = .goal,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        linkedAccountId: UUID? = nil,
+        subType: GoalSubType = .savings,
+        itemName: String? = nil,
+        streak: Int = 0,
+        longestStreak: Int = 0,
+        lastStreakDate: Date? = nil,
+        linkedDebtId: UUID? = nil
     ) {
         self.id = id
         self.title = title
@@ -381,8 +429,15 @@ struct Goal: Identifiable, Codable, Hashable {
         self.isCompleted = isCompleted
         self.goalType = goalType
         self.createdAt = createdAt
+        self.linkedAccountId = linkedAccountId
+        self.subType = subType
+        self.itemName = itemName
+        self.streak = streak
+        self.longestStreak = longestStreak
+        self.lastStreakDate = lastStreakDate
+        self.linkedDebtId = linkedDebtId
     }
-    
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
@@ -397,22 +452,107 @@ struct Goal: Identifiable, Codable, Hashable {
         isCompleted = try container.decode(Bool.self, forKey: .isCompleted)
         goalType = try container.decodeIfPresent(GoalType.self, forKey: .goalType) ?? .goal
         createdAt = try container.decode(Date.self, forKey: .createdAt)
+        linkedAccountId = try container.decodeIfPresent(UUID.self, forKey: .linkedAccountId)
+        subType = try container.decodeIfPresent(GoalSubType.self, forKey: .subType) ?? .savings
+        itemName = try container.decodeIfPresent(String.self, forKey: .itemName)
+        streak = try container.decodeIfPresent(Int.self, forKey: .streak) ?? 0
+        longestStreak = try container.decodeIfPresent(Int.self, forKey: .longestStreak) ?? 0
+        lastStreakDate = try container.decodeIfPresent(Date.self, forKey: .lastStreakDate)
+        linkedDebtId = try container.decodeIfPresent(UUID.self, forKey: .linkedDebtId)
     }
-    
+
     var progress: Double {
         guard targetAmount > 0 else { return 0 }
         return min((currentAmount / targetAmount) * 100, 100)
     }
-    
+
     var remaining: Double {
         max(targetAmount - currentAmount, 0)
     }
-    
+
     var colorValue: Color {
         Color(hex: color)
     }
-    
+
     var isEnvelope: Bool { goalType == .envelope }
+}
+
+// MARK: - Debt
+
+enum DebtType: String, Codable, CaseIterable {
+    case iOwe = "I Owe"
+    case owedToMe = "Owed to Me"
+}
+
+struct DebtPayment: Identifiable, Codable, Hashable {
+    let id: UUID
+    var amount: Double
+    var date: Date
+    var note: String
+
+    init(id: UUID = UUID(), amount: Double, date: Date = Date(), note: String = "") {
+        self.id = id
+        self.amount = amount
+        self.date = date
+        self.note = note
+    }
+}
+
+struct Debt: Identifiable, Codable, Hashable {
+    let id: UUID
+    var title: String
+    var person: String
+    var totalAmount: Double
+    var paidAmount: Double
+    var type: DebtType
+    var dueDate: Date?
+    var icon: String
+    var color: String
+    var note: String
+    var isSettled: Bool
+    var interestRate: Double?
+    var payments: [DebtPayment]
+    var createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        title: String,
+        person: String = "",
+        totalAmount: Double,
+        paidAmount: Double = 0,
+        type: DebtType = .iOwe,
+        dueDate: Date? = nil,
+        icon: String = "creditcard.fill",
+        color: String = "#FF3B30",
+        note: String = "",
+        isSettled: Bool = false,
+        interestRate: Double? = nil,
+        payments: [DebtPayment] = [],
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.title = title
+        self.person = person
+        self.totalAmount = totalAmount
+        self.paidAmount = paidAmount
+        self.type = type
+        self.dueDate = dueDate
+        self.icon = icon
+        self.color = color
+        self.note = note
+        self.isSettled = isSettled
+        self.interestRate = interestRate
+        self.payments = payments
+        self.createdAt = createdAt
+    }
+
+    var remaining: Double { max(totalAmount - paidAmount, 0) }
+    var progress: Double { totalAmount > 0 ? min(paidAmount / totalAmount * 100, 100) : 0 }
+    var colorValue: Color { Color(hex: color) }
+    var isOverdue: Bool {
+        guard let d = dueDate else { return false }
+        return !isSettled && d < Date()
+    }
 }
 
 // MARK: - User Profile
