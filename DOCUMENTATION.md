@@ -64,6 +64,210 @@ The app follows the **MVVM (Model-View-ViewModel)** architecture pattern:
 
 ---
 
+## Onboarding
+
+The onboarding flow runs on first launch. `RootView` (in `MyApp.swift`) checks `viewModel.hasCompletedOnboarding` and shows either `AuthGateView` (onboarding) or `MainTabView` (main app), with a smooth `.easeInOut` transition.
+
+**Source file:** `Views/Onboarding/OnboardingView.swift`
+
+---
+
+### Entry Points
+
+| View | Purpose |
+|------|---------|
+| `AuthGateView` | Welcome landing screen. Offers "Get Started" (→ `OnboardingView`) and "Already have an account?" (→ `LoginView`) |
+| `LoginView` | Email + password sign-in. Calls `viewModel.completeOnboarding()` on success |
+| `OnboardingView` | 9-page `TabView` holding all setup screens |
+
+---
+
+### Step-by-Step Flow
+
+#### Step 1 — Name  `(Page 0)`  `NameStepScreen`
+- **Icon:** `person.fill` (primary blue)
+- **Asks:** "What's your name?"
+- **Collects:** `userName: String`
+- **Validation:** Required — non-empty. Continue button disabled until filled.
+- **Auto-focus:** Keyboard opens automatically after 0.4 s
+
+---
+
+#### Step 2 — Profile Photo  `(Page 1)`  `ProfilePhotoScreen`
+- **Icon:** `camera.fill` (orange)
+- **Asks:** "Set your profile photo"
+- **Collects:** `profileImage: UIImage?` (optional)
+- **Storage:** JPEG at 0.8 quality → `UserProfile.profileImageData`
+- **Skippable:** Yes — "Skip for now" appears when no image is selected
+- **Picker:** Native `PHPickerViewController`
+
+---
+
+#### Step 3 — Financial Goals  `(Page 2)`  `GoalSelectionScreen`
+- **Icon:** `target` (orange)
+- **Asks:** "What are your financial goals?"
+- **Collects:** `selectedGoals: Set<FinancialGoal>` (multi-select)
+- **Persisted as:** `userProfile.primaryGoal` (first selected goal)
+- **Skippable:** Yes — button becomes "Skip" when nothing selected
+
+| Option | Icon | Color |
+|--------|------|-------|
+| Save more money | `dollarsign.circle.fill` | Green `#34C759` |
+| Track my spending | `chart.bar.fill` | Blue `#007AFF` |
+| Reach a savings goal | `target` | Orange `#FF9500` |
+| Build better habits | `arrow.up.right.circle.fill` | Purple `#AF52DE` |
+
+---
+
+#### Step 4 — Spending Habits  `(Page 3)`  `SpendingHabitsScreen`
+- **Icon:** `cart.fill` (red `#FF2D55`)
+- **Asks:** "How do you usually spend?"
+- **Collects:** `selectedHabits: Set<SpendingHabit>` (multi-select, not persisted)
+- **Skippable:** Yes
+
+| Option | Icon | Color |
+|--------|------|-------|
+| Mostly cash | `banknote.fill` | Green |
+| Card payments | `creditcard.fill` | Blue |
+| Mobile payments | `iphone.gen3` | Purple |
+| A mix of everything | `arrow.triangle.branch` | Orange |
+| Lots of subscriptions | `repeat.circle.fill` | Pink |
+| Impulse buyer | `bolt.fill` | Yellow |
+
+---
+
+#### Step 5 — Currency  `(Page 4)`  `CurrencySelectionScreen`
+- **Icon:** `dollarsign.circle.fill` (income green)
+- **Asks:** "Choose your currencies"
+- **Collects:** `selectedCurrencies: [Currency]`, `defaultCurrency: Currency`
+- **Persisted as:** `appState.selectedCurrency` (ISO code, e.g. `"USD"`)
+- **Validation:** Required — at least 1 currency must be selected
+- **Search:** Real-time filter by code or name
+- **Supports 40+ currencies:** USD, EUR, GBP, CAD, AUD, JPY, CNY, INR, BRL, MXN, and more
+- **Default badge:** Tap star on any chip to set as default. First selected becomes default automatically.
+
+---
+
+#### Step 6 — Account Details  `(Page 5)`  `AccountDetailsScreen`
+- **Icon:** `envelope.fill` (purple)
+- **Asks:** "Account details — for account recovery"
+- **Collects:**
+  - Email → `userProfile.email`
+  - Phone → `userProfile.phone`
+- **Validation:** Required — both fields must be non-empty
+
+---
+
+#### Step 7 — Password  `(Page 6)`  `CreatePasswordScreen`
+- **Icon:** `lock.fill` (green)
+- **Asks:** "Create a password"
+- **Collects:** `password`, `confirmPassword` (held in local state only — not persisted to profile)
+- **Validation:**
+  - Minimum 6 characters
+  - Both fields must match
+  - Inline error "Passwords don't match" shown with fade/slide animation
+
+---
+
+#### Step 8 — Username  `(Page 7)`  `UsernameStepScreen`
+- **Icon:** `at` (purple)
+- **Asks:** "Pick a username — your unique identity on Balance"
+- **Collects:** `username: String` → `userProfile.username`
+- **Validation:** None — field can be left empty
+
+---
+
+#### Step 9 — Ready to Start  `(Page 8)`  `ReadyToStartScreen`
+- **Icon:** Animated green checkmark with concentric circles
+- **Title:** "You're all set!"
+- **Shows:** 3-item preview of first steps (add account → create categories → record transaction)
+- **Button:** "Start" — triggers `completeOnboarding()`
+
+---
+
+### Data Flow: Collection → Persistence
+
+All data is held in `OnboardingView` local state throughout the flow. On the final "Start" tap:
+
+```
+viewModel.userProfile.name            ← userName
+viewModel.userProfile.username        ← username
+viewModel.userProfile.email           ← userEmail
+viewModel.userProfile.phone           ← userPhone
+viewModel.userProfile.primaryGoal     ← selectedGoals.first
+viewModel.userProfile.profileImageData← profileImage?.jpegData(compressionQuality: 0.8)
+
+viewModel.appState.selectedCurrency   ← defaultCurrency.code
+
+viewModel.completeOnboarding()  →  appState.hasCompletedOnboarding = true  →  saveAppState()
+viewModel.updateUserProfile(_)  →  saveUserProfile()
+```
+
+---
+
+### Persistence Keys
+
+| UserDefaults Key | Stores |
+|-----------------|--------|
+| `balance_userProfile` | Name, username, email, phone, photo, primary goal |
+| `balance_appState` | `hasCompletedOnboarding`, selected currency |
+
+Data is also synced to iCloud via `iCloudSyncManager` (`userProfile.json`, `appState.json`).
+
+---
+
+### Step Summary Table
+
+| # | Page | Struct | Collects | Required | Skippable |
+|---|------|--------|----------|----------|-----------|
+| 1 | 0 | `NameStepScreen` | Full name | Yes | No |
+| 2 | 1 | `ProfilePhotoScreen` | Profile photo | No | Yes |
+| 3 | 2 | `GoalSelectionScreen` | Financial goals | No | Yes |
+| 4 | 3 | `SpendingHabitsScreen` | Spending habits | No | Yes |
+| 5 | 4 | `CurrencySelectionScreen` | Default currency | Yes | No |
+| 6 | 5 | `AccountDetailsScreen` | Email + phone | Yes | No |
+| 7 | 6 | `CreatePasswordScreen` | Password | Yes | No |
+| 8 | 7 | `UsernameStepScreen` | Username | No | No |
+| 9 | 8 | `ReadyToStartScreen` | — | — | No |
+
+---
+
+### Reset / Re-trigger
+
+```swift
+viewModel.resetOnboarding()  // Sets hasCompletedOnboarding = false, saves
+```
+
+Used for testing only — not exposed in the production UI.
+
+---
+
+### Navigation & Animations
+
+| Element | Behavior |
+|---------|---------|
+| Back button | Returns to previous page; dismisses `OnboardingView` on page 0 |
+| Page transition | Spring `response: 0.4, dampingFraction: 0.85`; keyboard dismissed between steps |
+| Selection buttons | Spring `response: 0.3, dampingFraction: 0.7` + SF Symbol bounce |
+| Welcome screen entry | Scale + opacity fade, 0.1 s delay |
+| Completion checkmark | Bounce effect with 0.2 s delay |
+| Root transition | `.easeInOut` switch from `AuthGateView` → `MainTabView` |
+| Haptics | Selection on page advance/back; success on completion |
+
+---
+
+### Custom UI Components (Onboarding)
+
+| Component | Purpose |
+|-----------|---------|
+| `OnboardingButton` | 52 pt tall primary button; disabled state at 35 % opacity |
+| `OnboardingTextField` | Tertiary-fill field with optional icon and focus animation |
+| `StepIconBadge` | Circular icon with translucent colored background |
+| `ColoredGoalButton` | Tappable goal/habit card with spring animation |
+| `SelectedCurrencyChip` | Pill chip with remove (✕) and set-default (★) actions |
+
+---
+
 ## Project Structure
 
 ```
@@ -226,14 +430,9 @@ The app uses a 5-tab navigation structure:
 | **Wallet** | `wallet.pass.fill` | `WalletView` | Manage accounts & categories |
 | **More** | `ellipsis` | `MoreView` | Settings, profile, extras |
 
-### Onboarding Flow (6 Steps)
+### Onboarding Flow (9 Steps)
 
-1. **Welcome Screen** - App introduction
-2. **Profile Setup** - Name, email, profile photo
-3. **Goal Selection** - Financial goals (multi-select)
-4. **Income Range** - Monthly income bracket
-5. **Currency Selection** - Choose from 40+ currencies
-6. **First Account** - Create initial account
+See the [Onboarding](#onboarding) section for the complete step-by-step breakdown, data collected, validation rules, and persistence details.
 
 ### Home View Components
 
@@ -460,7 +659,7 @@ All data is persisted locally using `UserDefaults` with the following keys:
          ▼
 ┌──────────────────┐     No      ┌──────────────────┐
 │  Has Completed   │ ─────────▶  │   Onboarding     │
-│   Onboarding?    │             │   (6 screens)    │
+│   Onboarding?    │             │   (9 screens)    │
 └────────┬─────────┘             └────────┬─────────┘
          │ Yes                            │
          │                                │
