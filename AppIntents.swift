@@ -4,7 +4,7 @@ import SwiftUI
 // MARK: - Record Expense Intent
 struct RecordExpenseIntent: AppIntent {
     static let title: LocalizedStringResource = "Record Expense"
-    static let description = IntentDescription("Open Balance to record an expense")
+    static let description = IntentDescription("Open Balanced to record an expense")
     static let openAppWhenRun = true
 
     @MainActor
@@ -18,7 +18,7 @@ struct RecordExpenseIntent: AppIntent {
 // MARK: - Record Income Intent
 struct RecordIncomeIntent: AppIntent {
     static let title: LocalizedStringResource = "Record Income"
-    static let description = IntentDescription("Open Balance to record income")
+    static let description = IntentDescription("Open Balanced to record income")
     static let openAppWhenRun = true
 
     @MainActor
@@ -31,8 +31,8 @@ struct RecordIncomeIntent: AppIntent {
 
 // MARK: - Show Balance Intent
 struct ShowBalanceIntent: AppIntent {
-    static let title: LocalizedStringResource = "Show Balance"
-    static let description = IntentDescription("Open Balance to see your total balance")
+    static let title: LocalizedStringResource = "Show Balanced"
+    static let description = IntentDescription("Open Balanced to see your total balance")
     static let openAppWhenRun = true
 
     @MainActor
@@ -92,7 +92,7 @@ enum QuickTransactionType: String, AppEnum {
 /// Assign to Back Tap via Settings → Accessibility → Touch → Back Tap → Double Tap.
 struct QuickAddTransactionIntent: AppIntent {
     static let title: LocalizedStringResource = "Quick Add Transaction"
-    static let description = IntentDescription("Record a transaction without opening Balance")
+    static let description = IntentDescription("Record a transaction without opening Balanced")
     static let openAppWhenRun: Bool = false
 
     @Parameter(title: "Amount", requestValueDialog: IntentDialog("How much?"))
@@ -118,7 +118,7 @@ struct QuickAddTransactionIntent: AppIntent {
               let allAccounts = try? decoder.decode([Account].self, from: acctData),
               !allAccounts.isEmpty
         else {
-            return .result(dialog: "No account found. Open Balance to add an account first.")
+            return .result(dialog: "No account found. Open Balanced to add an account first.")
         }
 
         let targetAccount: Account
@@ -145,7 +145,7 @@ struct QuickAddTransactionIntent: AppIntent {
         }
 
         await MainActor.run {
-            NotificationCenter.default.post(name: Notification.Name("BalanceExternalDataChanged"), object: nil)
+            NotificationCenter.default.post(name: Notification.Name("BalancedExternalDataChanged"), object: nil)
         }
 
         var currency = "USD"
@@ -160,7 +160,7 @@ struct QuickAddTransactionIntent: AppIntent {
 }
 
 // MARK: - App Shortcuts Provider
-struct BalanceShortcuts: AppShortcutsProvider {
+struct BalancedShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
             intent: QuickAddTransactionIntent(),

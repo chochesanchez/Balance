@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Accounts Section
 struct AccountsSection: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
@@ -96,7 +96,7 @@ struct AccountCard: View {
 
 // MARK: - Money Distribution Card
 struct MoneyDistributionCard: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
 
     private struct DistributionItem: Identifiable {
         let id: UUID

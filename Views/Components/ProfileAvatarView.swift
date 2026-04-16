@@ -29,7 +29,7 @@ struct ProfileAvatarView: View {
 
 // MARK: - Profile Detail (redirects to full profile in More)
 struct ProfileDetailView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
 
     var body: some View {
         NewProfileView(viewModel: viewModel)

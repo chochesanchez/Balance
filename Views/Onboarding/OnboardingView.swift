@@ -100,7 +100,7 @@ struct StepIconBadge: View {
 
 // MARK: - Welcome Screen (Root)
 struct AuthGateView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @State private var appeared = false
     @State private var showOnboarding = false
     @State private var showLogin = false
@@ -130,7 +130,7 @@ struct AuthGateView: View {
                             .font(.system(size: 20, weight: .semibold))
                             .foregroundColor(Color(uiColor: .secondaryLabel))
                         
-                        Text("Balance")
+                        Text("Balanced")
                             .font(.system(size: 42, weight: .bold, design: .rounded))
                             .foregroundColor(Color(uiColor: .label))
                     }
@@ -183,7 +183,7 @@ struct AuthGateView: View {
 
 // MARK: - Login View
 struct LoginView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var email = ""
     @State private var password = ""
@@ -289,7 +289,7 @@ struct LoginView: View {
 // MARK: - Onboarding Container
 // Flow: Name -> Photo+Username -> Goals -> Habits -> Currencies -> Email+Phone -> Password -> Start
 struct OnboardingView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var currentPage = 0
     
@@ -555,7 +555,7 @@ struct UsernameStepScreen: View {
                         .font(.system(size: 26, weight: .bold, design: .rounded))
                         .foregroundColor(Color(uiColor: .label))
                     
-                    Text("Your unique identity on Balance")
+                    Text("Your unique identity on Balanced")
                         .font(.system(size: 15))
                         .foregroundColor(Color(uiColor: .secondaryLabel))
                 }
@@ -1217,7 +1217,7 @@ struct ReadyToStartScreen: View {
                         .font(.system(size: 26, weight: .bold, design: .rounded))
                         .foregroundColor(Color(uiColor: .label))
                     
-                    Text("Let's take a quick tour of Balance\nand set up your first account")
+                    Text("Let's take a quick tour of Balanced\nand set up your first account")
                         .font(.system(size: 15))
                         .foregroundColor(Color(uiColor: .secondaryLabel))
                         .multilineTextAlignment(.center)

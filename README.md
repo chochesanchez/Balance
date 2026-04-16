@@ -1,10 +1,10 @@
-# Balance - Personal Finance Companion for Students & Youth
+# Balanced - Personal Finance Companion for Students & Youth
 
 <div align="center">
 
 **Made to Change, by Choche Sanchez.**
 
-![Balance App Icon](Assets.xcassets/AppIcon.appiconset/Balance%20App%20Icon%20iOS.png)
+![Balanced App Icon](Assets.xcassets/AppIcon.appiconset/Balance%20App%20Icon%20iOS.png)
 
 ### Version 3.0 · WWDC25 Swift Student Challenge Winner
 
@@ -110,12 +110,12 @@ This project was developed for the **WWDC25 Swift Student Challenge** and was se
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/Balance.git
+   git clone https://github.com/yourusername/Balanced.git
    ```
 
 2. **Open in Xcode**
    ```bash
-   cd Balance/Balance.swiftpm
+   cd Balanced/Balanced.swiftpm
    open Package.swift
    ```
 
@@ -141,7 +141,7 @@ Balance follows the **MVVM (Model-View-ViewModel)** architecture pattern:
 │  (SwiftUI Views - UI Layer)                              │
 ├─────────────────────────────────────────────────────────┤
 │                    ViewModel                            │
-│  (BalanceViewModel - Business Logic & State)             │
+│  (BalancedViewModel - Business Logic & State)             │
 ├─────────────────────────────────────────────────────────┤
 │                      Models                             │
 │  (Account, Transaction, Category, Goal, etc.)           │
@@ -161,10 +161,10 @@ Balance.swiftpm/
 ├── Theme.swift              # Design system
 │
 ├── Models/
-│   └── BalanceModels.swift  # Data models
+│   └── BalancedModels.swift  # Data models
 │
 ├── ViewModels/
-│   └── BalanceViewModel.swift  # Main ViewModel
+│   └── BalancedViewModel.swift  # Main ViewModel
 │
 ├── Views/
 │   ├── Onboarding/          # 7-step onboarding flow

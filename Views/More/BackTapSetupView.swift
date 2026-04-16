@@ -5,7 +5,7 @@ struct BackTapSetupView: View {
 
     private let shortcutSteps: [(icon: String, color: Color, title: String, subtitle: String)] = [
         ("square.grid.2x2.fill",    Theme.Colors.primary,    "Open Shortcuts",          "Launch the Shortcuts app on your iPhone"),
-        ("magnifyingglass",         Color(hex: "8E8E93"),    "Search \"Balance\"",      "Type Balance in the search bar"),
+        ("magnifyingglass",         Color(hex: "8E8E93"),    "Search \"Balanced\"",     "Type Balanced in the search bar"),
         ("hand.tap.fill",           Theme.Colors.goals,      "Long-press Quick Add",    "Hold the Quick Add shortcut for 3 seconds until a pop-up appears"),
         ("plus.square.fill",        Theme.Colors.income,     "Tap \"New Shortcut\"",    "Select New Shortcut from the pop-up menu"),
         ("slider.horizontal.3",     Theme.Colors.primary,    "Set Ask Each Time",       "Tap the Type field → choose Ask Each Time. Do the same for Account."),
@@ -38,7 +38,7 @@ struct BackTapSetupView: View {
                         .font(.system(size: 22, weight: .bold))
                         .foregroundColor(Color(uiColor: .label))
 
-                    Text("Tap the back of your iPhone to instantly record a transaction — no need to open Balance.")
+                    Text("Tap the back of your iPhone to instantly record a transaction — no need to open Balanced.")
                         .font(.system(size: 14))
                         .foregroundColor(Color(uiColor: .secondaryLabel))
                         .multilineTextAlignment(.center)

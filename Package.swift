@@ -8,15 +8,15 @@ import PackageDescription
 import AppleProductTypes
 
 let package = Package(
-    name: "Balance",
+    name: "Balanced",
     platforms: [
         .iOS("17.0")
     ],
     products: [
         .iOSApplication(
-            name: "Balance",
+            name: "Balanced",
             targets: ["AppModule"],
-            bundleIdentifier: "com.chochesanchez.Balance",
+            bundleIdentifier: "com.chochesanchez.Balanced",
             teamIdentifier: "CLE629MGG8",
             displayVersion: "3.0",
             bundleVersion: "3",

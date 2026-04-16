@@ -9,7 +9,7 @@ enum GaugeScope: String, CaseIterable {
 
 // MARK: - Spending Gauge Card (Semicircular Arc)
 struct SpendingGaugeCard: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Binding var isHidden: Bool
     @State private var animatedProgress: Double = 0
     @State private var scope: GaugeScope = .week
@@ -245,7 +245,7 @@ struct SpendingGaugeCard: View {
 
 // MARK: - Spending Limit Editor Sheet
 struct SpendingLimitEditor: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var limitText: String = ""
     @FocusState private var isFocused: Bool

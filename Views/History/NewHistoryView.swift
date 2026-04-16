@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - New History View
 /// Transaction history with improved filters and transaction detail
 struct NewHistoryView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @State private var searchText = ""
     @State private var selectedFilters: Set<TransactionType> = []
     @State private var showRecurringOnly = false
@@ -491,7 +491,7 @@ struct HistoryTransactionRow: View {
 
 // MARK: - Transaction Detail View
 struct TransactionDetailView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     let transaction: Transaction
     @Environment(\.dismiss) private var dismiss
     @State private var isEditing = false
@@ -1126,7 +1126,7 @@ struct QuickDateButton: View {
 
 // MARK: - Advanced Filters Sheet
 struct AdvancedFiltersSheet: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Binding var selectedCategories: Set<UUID>
     @Binding var selectedAccounts: Set<UUID>
     @Binding var selectedGoalIds: Set<UUID>
@@ -1283,6 +1283,6 @@ private func formatDateHeader(_ date: Date) -> String {
 
 #Preview {
     NavigationStack {
-        NewHistoryView(viewModel: BalanceViewModel())
+        NewHistoryView(viewModel: BalancedViewModel())
     }
 }

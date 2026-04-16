@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Wallet View
 struct WalletView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @State private var selectedSegment = 0
     @State private var showingAddAccount = false
     @State private var showingAddCategory = false
@@ -88,7 +88,7 @@ struct WalletView: View {
 
 // MARK: - Accounts List View
 struct AccountsListView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     let searchText: String
     @Binding var showingAddAccount: Bool
     
@@ -244,7 +244,7 @@ struct AccountRowView: View {
 
 // MARK: - Categories List View
 struct CategoriesListView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     let searchText: String
     @Binding var showingAddCategory: Bool
     
@@ -314,7 +314,7 @@ struct CategoriesListView: View {
 struct CategorySection: View {
     let title: String
     let categories: [Category]
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     
     private var sectionTotal: Double {
         categories.reduce(0) { sum, cat in
@@ -360,7 +360,7 @@ struct CategorySection: View {
 
 struct CategoryRowView: View {
     let category: Category
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     
     private var txCount: Int {
         viewModel.transactionsForCategory(category).count
@@ -450,7 +450,7 @@ struct WalletEmptyState: View {
 
 // MARK: - Category Metrics View
 struct CategoryMetricsView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     let category: Category
     @State private var selectedTimeRange: TimeRange = .monthly
     
@@ -733,7 +733,7 @@ private struct WalletStatCard: View {
 
 // MARK: - Account Detail View
 struct AccountDetailView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
     let account: Account
     
@@ -993,7 +993,7 @@ private struct AccountMetricPill: View {
 
 // MARK: - Add Account View
 struct AddAccountView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
     
     @State private var name = ""
@@ -1161,7 +1161,7 @@ struct AddAccountView: View {
 
 // MARK: - Add Category View
 struct AddCategoryView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
     
     @State private var name = ""
@@ -1362,7 +1362,7 @@ struct AddCategoryView: View {
 
 // MARK: - Edit Category View
 struct EditCategoryView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
     let category: Category
     
@@ -1410,7 +1410,7 @@ struct EditCategoryView: View {
         "camera.fill", "sparkles", "star.fill", "tag.fill",
     ]
     
-    init(viewModel: BalanceViewModel, category: Category) {
+    init(viewModel: BalancedViewModel, category: Category) {
         self.viewModel = viewModel
         self.category = category
         _name = State(initialValue: category.name)
@@ -1572,7 +1572,7 @@ struct EditCategoryView: View {
 
 // MARK: - Edit Account View
 struct EditAccountView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
     let account: Account
     
@@ -1592,7 +1592,7 @@ struct EditAccountView: View {
         "house.fill", "car.fill", "star.fill", "heart.fill",
     ]
     
-    init(viewModel: BalanceViewModel, account: Account) {
+    init(viewModel: BalancedViewModel, account: Account) {
         self.viewModel = viewModel
         self.account = account
         _name = State(initialValue: account.name)
@@ -1893,6 +1893,6 @@ extension Color {
 
 #Preview {
     NavigationStack {
-        WalletView(viewModel: BalanceViewModel())
+        WalletView(viewModel: BalancedViewModel())
     }
 }

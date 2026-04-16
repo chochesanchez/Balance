@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Savings Pots Summary Section
 struct SavingsPotsSummarySection: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @State private var showAddPot = false
     @State private var selectedPot: Goal? = nil
     @State private var navigateToPots = false
@@ -156,7 +156,7 @@ struct SavingsPotCard: View {
 
 // MARK: - Pot Contribute Sheet
 struct PotContributeSheet: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     let pot: Goal
     @Environment(\.dismiss) private var dismiss
     @State private var amountText = ""
@@ -304,7 +304,7 @@ struct PotContributeSheet: View {
 
 // MARK: - Quick Add Pot Sheet
 struct QuickAddPotSheet: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var initialBalance = ""

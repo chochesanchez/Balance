@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Home View
 struct NewHomeView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @State private var showingRecordSheet = false
     @State private var recordInitialType: TransactionType? = nil
     @State private var recordInitialIsRecurring = false
@@ -84,5 +84,5 @@ struct NewHomeView: View {
 }
 
 #Preview {
-    MainTabView(viewModel: BalanceViewModel())
+    MainTabView(viewModel: BalancedViewModel())
 }

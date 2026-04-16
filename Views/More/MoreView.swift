@@ -5,7 +5,7 @@ import AppIntents
 
 // MARK: - More View
 struct MoreView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     
     var body: some View {
         List {
@@ -87,8 +87,8 @@ struct MoreView: View {
                     MoreRowView(icon: "questionmark.circle.fill", title: "Help & Support", color: Theme.Colors.income)
                 }
                 
-                NavigationLink(destination: AboutBalanceView()) {
-                    MoreRowView(icon: "info.circle.fill", title: "About Balance", color: Theme.Colors.primary)
+                NavigationLink(destination: AboutBalancedView()) {
+                    MoreRowView(icon: "info.circle.fill", title: "About Balanced", color: Theme.Colors.primary)
                 }
             }
             
@@ -158,7 +158,7 @@ struct MoreView: View {
 
 // MARK: - Recurring Badge Row
 struct RecurringBadgeRow: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     
     private var badgeCount: Int {
         viewModel.overdueRecurring.count + viewModel.upcomingRecurring.filter { $0.isDueToday }.count
@@ -222,13 +222,13 @@ struct MoreRowView: View {
 
 // MARK: - Profile View
 struct NewProfileView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @State private var isEditing = false
     @State private var editingProfile: UserProfile
     @State private var showingImagePicker = false
     @State private var selectedImage: UIImage?
     
-    init(viewModel: BalanceViewModel) {
+    init(viewModel: BalancedViewModel) {
         self.viewModel = viewModel
         self._editingProfile = State(initialValue: viewModel.userProfile)
     }
@@ -521,7 +521,7 @@ struct ProfileImagePicker: UIViewControllerRepresentable {
 
 // MARK: - Analytics View
 struct AnalyticsView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @State private var selectedTimeRange: TimeRange = .monthly
     
     private var dailyData: [(date: Date, income: Double, expense: Double)] {
@@ -1048,7 +1048,7 @@ struct StatCard: View {
 
 // MARK: - Goals List View
 struct GoalsListView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @State private var showingAddGoal = false
     @State private var showingCalendar = false
     @State private var selectedGoalItem: Goal? = nil
@@ -1172,7 +1172,7 @@ struct GoalsListView: View {
 
 // MARK: - Savings Pots List View (More tab)
 struct SavingsPotsListView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @State private var selectedPot: Goal?
     @State private var showAddPot = false
 
@@ -1356,7 +1356,7 @@ struct GoalRowView: View {
 }
 
 struct GoalDetailView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
     let goal: Goal
     @State private var showContribute = false
@@ -1757,7 +1757,7 @@ struct GoalDetailView: View {
 
 // MARK: - Goal Contribute Sheet
 struct GoalContributeSheet: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     let goal: Goal
     let initialIsWithdraw: Bool
     @Environment(\.dismiss) private var dismiss
@@ -1914,7 +1914,7 @@ struct GoalContributeSheet: View {
 
 // MARK: - Edit Goal View
 struct EditGoalView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     let goal: Goal
     @Environment(\.dismiss) private var dismiss
 
@@ -1944,7 +1944,7 @@ struct EditGoalView: View {
         "tree.fill", "mountain.2.fill", "sun.max.fill", "moon.fill",
     ]
 
-    init(viewModel: BalanceViewModel, goal: Goal) {
+    init(viewModel: BalancedViewModel, goal: Goal) {
         self.viewModel = viewModel
         self.goal = goal
         _title = State(initialValue: goal.title)
@@ -2177,7 +2177,7 @@ struct EditGoalView: View {
 }
 
 struct GoalsCalendarView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -2239,7 +2239,7 @@ struct GoalsCalendarView: View {
 
 // MARK: - Add Goal View
 struct AddGoalView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
 
     @State private var goalType: GoalType = .goal
@@ -2655,7 +2655,7 @@ struct GoalSubTypeCard: View {
 
 // MARK: - Financial Health View
 struct FinancialHealthView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     
     private var savingsRateScore: Int {
         if viewModel.savingsRate >= 20 { return 30 }
@@ -3294,7 +3294,7 @@ struct TipRow: View {
 
 // MARK: - Settings View
 struct SettingsView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @State private var spendingLimitText: String = ""
     @State private var showExportSheet = false
     @State private var exportURL: URL?
@@ -3351,7 +3351,7 @@ struct SettingsView: View {
                 }
             }
             
-            Section(header: Text("Notifications"), footer: Text("Control which notifications Balance sends you.")) {
+            Section(header: Text("Notifications"), footer: Text("Control which notifications Balanced sends you.")) {
                 HStack {
                     Image(systemName: "repeat.circle.fill")
                         .foregroundColor(Theme.Colors.recurring)
@@ -3443,14 +3443,14 @@ struct SettingsView: View {
             csv += "\(date),\(type),\(amount),\(account),\(category),\(title),\(note)\n"
         }
         
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("Balance_Export.csv")
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("Balanced_Export.csv")
         try? csv.write(to: tempURL, atomically: true, encoding: .utf8)
         exportURL = tempURL
         showExportSheet = true
     }
     
     private func exportJSON() {
-        struct BalanceExport: Codable {
+        struct BalancedExport: Codable {
             let accounts: [Account]
             let categories: [Category]
             let transactions: [Transaction]
@@ -3459,7 +3459,7 @@ struct SettingsView: View {
             let exportDate: Date
         }
         
-        let export = BalanceExport(
+        let export = BalancedExport(
             accounts: viewModel.accounts,
             categories: viewModel.categories,
             transactions: viewModel.transactions,
@@ -3473,7 +3473,7 @@ struct SettingsView: View {
         encoder.outputFormatting = .prettyPrinted
         
         guard let data = try? encoder.encode(export) else { return }
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("Balance_Export.json")
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("Balanced_Export.json")
         try? data.write(to: tempURL)
         exportURL = tempURL
         showExportSheet = true
@@ -3491,7 +3491,7 @@ struct ShareSheet: UIViewControllerRepresentable {
 }
 
 struct CurrencySettingsView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
     
@@ -3599,7 +3599,7 @@ private struct FAQItem: View {
 }
 
 // MARK: - About View
-struct AboutBalanceView: View {
+struct AboutBalancedView: View {
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
@@ -3608,7 +3608,7 @@ struct AboutBalanceView: View {
                 .font(.system(size: 60))
                 .foregroundColor(Theme.Colors.primary)
             
-            Text("Balance")
+            Text("Balanced")
                 .font(.system(size: 28, weight: .bold))
             
             Text("Version 3.0")
@@ -3637,6 +3637,6 @@ struct AboutBalanceView: View {
 
 #Preview {
     NavigationStack {
-        MoreView(viewModel: BalanceViewModel())
+        MoreView(viewModel: BalancedViewModel())
     }
 }

@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Debt Detail View
 struct DebtDetailView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     let debt: Debt
     @Environment(\.dismiss) private var dismiss
     @State private var showPayment = false
@@ -16,7 +16,7 @@ struct DebtDetailView: View {
         viewModel.debts.first(where: { $0.id == debt.id }) ?? debt
     }
 
-    private var myRecommendations: [BalanceViewModel.DebtRecommendation] {
+    private var myRecommendations: [BalancedViewModel.DebtRecommendation] {
         viewModel.debtRecommendations.filter { $0.debtId == debt.id }
     }
 
@@ -259,7 +259,7 @@ struct DebtDetailView: View {
 
 // MARK: - Edit Debt View
 struct EditDebtView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     let debt: Debt
     @Environment(\.dismiss) private var dismiss
 
@@ -281,7 +281,7 @@ struct EditDebtView: View {
     ]
     private let debtColor = Color(hex: "FF3B30")
 
-    init(viewModel: BalanceViewModel, debt: Debt) {
+    init(viewModel: BalancedViewModel, debt: Debt) {
         self.viewModel = viewModel
         self.debt = debt
         _title = State(initialValue: debt.title)

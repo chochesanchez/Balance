@@ -7,7 +7,7 @@ import Foundation
 @MainActor
 final class iCloudSyncManager {
     static let shared = iCloudSyncManager()
-    private let containerID = "iCloud.com.chochesanchez.Balance"
+    private let containerID = "iCloud.com.chochesanchez.Balanced"
 
     // MARK: - Availability
 

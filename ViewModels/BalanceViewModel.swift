@@ -7,7 +7,7 @@ import UserNotifications
 /// Main ViewModel for the Balance app with new architecture
 
 @MainActor
-class BalanceViewModel: ObservableObject {
+class BalancedViewModel: ObservableObject {
     
     // MARK: - Published Properties
     @Published var accounts: [Account] = []
@@ -1378,7 +1378,7 @@ class BalanceViewModel: ObservableObject {
         }
         // Reload when Back Tap intent writes a transaction while the app is backgrounded
         NotificationCenter.default.addObserver(
-            forName: Notification.Name("BalanceExternalDataChanged"),
+            forName: Notification.Name("BalancedExternalDataChanged"),
             object: nil, queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in

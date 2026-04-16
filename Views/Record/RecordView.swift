@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Record View
 struct RecordView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
     
     var initialType: TransactionType?
@@ -28,7 +28,7 @@ struct RecordView: View {
     @State private var notifyDaysBefore = 1
     @FocusState private var amountFocused: Bool
     
-    init(viewModel: BalanceViewModel, initialType: TransactionType? = nil, initialIsRecurring: Bool = false) {
+    init(viewModel: BalancedViewModel, initialType: TransactionType? = nil, initialIsRecurring: Bool = false) {
         self.viewModel = viewModel
         self.initialType = initialType
         self.initialIsRecurring = initialIsRecurring
@@ -377,7 +377,7 @@ private struct RecordTypeButton: View {
 
 // MARK: - Account Selection
 private struct AccountSelectionCard: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Binding var selectedAccountId: UUID?
     @Binding var toAccountId: UUID?
     let isTransfer: Bool
@@ -474,7 +474,7 @@ private struct RecordAccountPill: View {
 
 // MARK: - Category Selection
 struct CategorySelectionCard: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Binding var selectedCategoryId: UUID?
     let categoryType: CategoryType
     @Binding var showingAddCategory: Bool
@@ -762,7 +762,7 @@ private struct RecordPlaceholderCard: View {
 
 // MARK: - Add Account/Category Sheets (quick inline from Record)
 struct AddAccountSheet: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -771,7 +771,7 @@ struct AddAccountSheet: View {
 }
 
 struct AddCategorySheet: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
     let categoryType: CategoryType
     

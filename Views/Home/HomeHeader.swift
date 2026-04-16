@@ -27,7 +27,7 @@ struct HomeSectionHeader: View {
 
 // MARK: - Home Header
 struct HomeHeader: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
 
     var body: some View {
         NavigationLink(destination: ProfileDetailView(viewModel: viewModel)) {
@@ -39,7 +39,7 @@ struct HomeHeader: View {
                         .font(Theme.Typography.caption)
                         .foregroundColor(Color(uiColor: .secondaryLabel))
 
-                    Text(viewModel.userProfile.name.isEmpty ? "Balance" : viewModel.userProfile.name)
+                    Text(viewModel.userProfile.name.isEmpty ? "Balanced" : viewModel.userProfile.name)
                         .font(Theme.Typography.headline)
                         .foregroundColor(Color(uiColor: .label))
                 }
@@ -47,7 +47,7 @@ struct HomeHeader: View {
                 Spacer()
             }
         }
-        .accessibilityLabel("Profile: \(viewModel.userProfile.name.isEmpty ? "Balance" : viewModel.userProfile.name)")
+        .accessibilityLabel("Profile: \(viewModel.userProfile.name.isEmpty ? "Balanced" : viewModel.userProfile.name)")
         .accessibilityHint("Tap to view your profile")
         .padding(.vertical, Theme.Spacing.xxs)
     }

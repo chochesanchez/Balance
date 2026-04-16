@@ -4,7 +4,7 @@ import Charts
 // MARK: - Category Detail View
 /// Detailed view for a single category with trends and transactions
 struct CategoryDetailView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     let category: Category
     
     @State private var selectedTimeRange: TimeRange = .monthly
@@ -413,7 +413,7 @@ struct CategoryTransactionRow: View {
 #Preview {
     NavigationStack {
         CategoryDetailView(
-            viewModel: BalanceViewModel(),
+            viewModel: BalancedViewModel(),
             category: Category(
                 name: "Food & Dining",
                 icon: "fork.knife",

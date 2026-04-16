@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Goals Summary Section
 struct GoalsSummarySection: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @State private var navigateToGoals = false
     @State private var selectedGoal: Goal? = nil
 
@@ -171,7 +171,7 @@ struct GoalItemRow: View {
 
 // MARK: - Recurring Summary Section
 struct RecurringSummarySection: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
 
     private var activeRecurring: [RecurringTransaction] {
         viewModel.recurringTransactions.filter { $0.isActive }

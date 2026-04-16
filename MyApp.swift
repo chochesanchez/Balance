@@ -1,11 +1,11 @@
 import SwiftUI
 
 @main
-struct BalanceApp: App {
-    @StateObject private var viewModel = BalanceViewModel()
+struct BalancedApp: App {
+    @StateObject private var viewModel = BalancedViewModel()
 
     init() {
-        BalanceShortcuts.updateAppShortcutParameters()
+        BalancedShortcuts.updateAppShortcutParameters()
     }
 
     var body: some Scene {
@@ -16,7 +16,7 @@ struct BalanceApp: App {
 }
 
 struct RootView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     
     var body: some View {
         Group {
@@ -28,7 +28,7 @@ struct RootView: View {
         }
         .animation(.easeInOut, value: viewModel.hasCompletedOnboarding)
         .task {
-            BalanceShortcuts.updateAppShortcutParameters()
+            BalancedShortcuts.updateAppShortcutParameters()
         }
     }
 }

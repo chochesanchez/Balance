@@ -3,7 +3,7 @@ import Charts
 
 // MARK: - Weekly Balance Chart
 struct WeeklyBalanceChart: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
 
     /// Uses the cached weeklyHistory from ViewModel (updated after each transaction).
     private var data: [(weekLabel: String, endDate: Date, balance: Double)] {
@@ -114,7 +114,7 @@ struct WeeklyBalanceChart: View {
 
 // MARK: - Calendar Section
 struct HomeCalendarSection: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @State private var selectedDate = Date()
     @State private var tappedDate: Date? = nil
 

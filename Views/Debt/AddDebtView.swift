@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Add Debt View
 struct AddDebtView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
 
     @State private var title = ""

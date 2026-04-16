@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Debts List View
 struct DebtsListView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @State private var selectedSegment: DebtType = .iOwe
     @State private var showingAdd = false
     @State private var showSettled = false

@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Recurring Transactions View with Income/Expense Filter
 struct RecurringView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @State private var showingAddRecurring = false
     @State private var selectedFilter: TransactionType? = nil
     
@@ -171,7 +171,7 @@ struct FilterChip: View {
 // MARK: - Recurring Row
 struct RecurringRow: View {
     let recurring: RecurringTransaction
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     let isOverdue: Bool
     
     @State private var showingDetail = false
@@ -265,7 +265,7 @@ struct RecurringRow: View {
 
 // MARK: - Add Recurring View (Improved UI)
 struct AddRecurringView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @Environment(\.dismiss) private var dismiss
     
     @State private var title = ""
@@ -685,7 +685,7 @@ struct NotificationToggle: View {
 
 // MARK: - Recurring Detail View
 struct RecurringDetailView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     let recurring: RecurringTransaction
     @Environment(\.dismiss) private var dismiss
     
@@ -903,7 +903,7 @@ struct RecurringDetailView: View {
 
 // MARK: - Edit Recurring View
 struct EditRecurringView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     let recurring: RecurringTransaction
     @Environment(\.dismiss) private var dismiss
     
@@ -919,7 +919,7 @@ struct EditRecurringView: View {
     @State private var note: String
     @State private var notifyDaysBefore: Int
     
-    init(viewModel: BalanceViewModel, recurring: RecurringTransaction) {
+    init(viewModel: BalancedViewModel, recurring: RecurringTransaction) {
         self.viewModel = viewModel
         self.recurring = recurring
         

@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Home Debt Section
 struct HomeDebtSection: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @State private var navigateToDebts = false
 
     private let debtColor = Color(hex: "FF3B30")

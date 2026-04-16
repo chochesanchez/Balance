@@ -1,4 +1,4 @@
-# Balance App Documentation
+# Balanced App Documentation
 
 > **Version:** 1.0  
 > **Platform:** iOS (SwiftUI)  
@@ -22,7 +22,7 @@
 
 ## Overview
 
-**Balance** is a personal finance companion app designed for students and young people. It helps users track their income, expenses, and transfers while providing insights into their spending habits and financial health.
+**Balanced** is a personal finance companion app designed for students and young people. It helps users track their income, expenses, and transfers while providing insights into their spending habits and financial health.
 
 ### Key Features
 - 💰 Track income, expenses, and transfers
@@ -723,6 +723,6 @@ All data is persisted locally using `UserDefaults` with the following keys:
 
 ## Credits
 
-**Balance** - Made with ❤️ for Swift Student Challenge 2025
+**Balanced** - Made with ❤️ for Swift Student Challenge 2025
 
 ---

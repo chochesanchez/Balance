@@ -1,11 +1,11 @@
 import SwiftUI
 
 struct MainTabView: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     @StateObject private var navState = NavigationState.shared
     @State private var selectedTab: Int
     
-    init(viewModel: BalanceViewModel) {
+    init(viewModel: BalancedViewModel) {
         self.viewModel = viewModel
         self._selectedTab = State(initialValue: viewModel.appState.defaultTab)
     }
@@ -63,5 +63,5 @@ struct MainTabView: View {
 }
 
 #Preview {
-    MainTabView(viewModel: BalanceViewModel())
+    MainTabView(viewModel: BalancedViewModel())
 }

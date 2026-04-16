@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Debt Payment Sheet
 struct DebtPaymentSheet: View {
-    @ObservedObject var viewModel: BalanceViewModel
+    @ObservedObject var viewModel: BalancedViewModel
     let debt: Debt
     @Environment(\.dismiss) private var dismiss
 
