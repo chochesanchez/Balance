@@ -5,7 +5,7 @@ import SwiftUI
 struct QuickRecordButton: View {
     let action: () -> Void
     var size: CGFloat = Theme.Sizes.tabBarCenterSize
-    
+
     var body: some View {
         Button(action: {
             action()
@@ -21,13 +21,16 @@ struct QuickRecordButton: View {
                         x: Theme.Shadows.fab.x,
                         y: Theme.Shadows.fab.y
                     )
-                
+
                 Image(systemName: Theme.Icons.add)
                     .font(.system(size: size * 0.4, weight: .semibold))
                     .foregroundStyle(.white)
             }
         }
         .buttonStyle(PressEffectButtonStyle())
+        .accessibilityLabel("Record a transaction")
+        .accessibilityHint("Opens the recording screen")
+        .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -38,7 +41,7 @@ struct QuickActionPill: View {
     let label: String
     let color: Color
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: {
             action()
@@ -47,6 +50,7 @@ struct QuickActionPill: View {
             HStack(spacing: Theme.Spacing.xs) {
                 Image(systemName: icon)
                     .font(.system(size: 16, weight: .semibold))
+                    .accessibilityHidden(true)
                 Text(label)
                     .font(Theme.Typography.subheadline)
                     .fontWeight(.medium)
@@ -56,8 +60,11 @@ struct QuickActionPill: View {
             .padding(.vertical, Theme.Spacing.sm)
             .background(color.opacity(0.12))
             .clipShape(Capsule())
+            .frame(minHeight: Theme.Sizes.minTapTarget)
         }
         .buttonStyle(PressEffectButtonStyle())
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(.isButton)
     }
 }
 

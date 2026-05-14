@@ -35,13 +35,16 @@ struct AccountsSection: View {
                             Image(systemName: "plus")
                                 .font(.system(size: 18, weight: .medium))
                                 .foregroundColor(Color(uiColor: .tertiaryLabel))
-                                .frame(width: 40, height: 40)
+                                .frame(width: 44, height: 44)
                                 .background(Color(uiColor: .tertiarySystemFill))
                                 .clipShape(Circle())
+                                .accessibilityHidden(true)
 
+                            // Invisible spacer used only for vertical alignment with cards.
                             Text("$0.00")
                                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                                 .foregroundColor(Color.clear)
+                                .accessibilityHidden(true)
 
                             Text("Add")
                                 .font(.system(size: 11))
@@ -53,6 +56,7 @@ struct AccountsSection: View {
                         .cornerRadius(14)
                     }
                     .accessibilityLabel("Add account")
+                    .accessibilityHint("Opens the Wallet screen")
                 }
             }
             .scrollTargetBehavior(.viewAligned)
@@ -74,11 +78,13 @@ struct AccountCard: View {
                 .frame(width: 40, height: 40)
                 .background(account.colorValue.opacity(0.12))
                 .clipShape(Circle())
+                .accessibilityHidden(true)
 
             Text(formatCurrency(balance, currency: currency))
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .foregroundColor(Color(uiColor: .label))
                 .lineLimit(1)
+                .minimumScaleFactor(0.7)
 
             Text(account.name)
                 .font(.system(size: 11))

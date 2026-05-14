@@ -44,18 +44,21 @@ struct QuickActionButton: View {
                 Image(systemName: icon)
                     .font(.system(size: 18, weight: .medium))
                     .foregroundColor(color)
-                    .frame(width: Theme.Sizes.minTapTarget - 2, height: Theme.Sizes.minTapTarget - 2)
+                    .frame(width: Theme.Sizes.minTapTarget, height: Theme.Sizes.minTapTarget)
                     .background(color.opacity(0.1))
                     .clipShape(Circle())
+                    .accessibilityHidden(true)
 
                 Text(label)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(Color(uiColor: .label))
             }
             .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
         }
         .buttonStyle(PressEffectButtonStyle())
         .accessibilityLabel(label)
         .accessibilityHint("Quick record \(label)")
+        .accessibilityAddTraits(.isButton)
     }
 }

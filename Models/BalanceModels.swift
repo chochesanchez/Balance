@@ -11,12 +11,14 @@ struct Account: Identifiable, Codable, Hashable {
     var name: String
     var type: AccountType
     var icon: String
-    var color: String // Hex color
+    var color: String
     var initialBalance: Double
     var isDefault: Bool
-    var note: String? // Optional note/subtitle
+    var note: String?
     var createdAt: Date
-    
+    var isArchived: Bool
+    var archivedAt: Date?
+
     init(
         id: UUID = UUID(),
         name: String,
@@ -26,7 +28,9 @@ struct Account: Identifiable, Codable, Hashable {
         initialBalance: Double = 0,
         isDefault: Bool = false,
         note: String? = nil,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        isArchived: Bool = false,
+        archivedAt: Date? = nil
     ) {
         self.id = id
         self.name = name
@@ -37,11 +41,69 @@ struct Account: Identifiable, Codable, Hashable {
         self.isDefault = isDefault
         self.note = note
         self.createdAt = createdAt
+        self.isArchived = isArchived
+        self.archivedAt = archivedAt
     }
-    
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        type = try container.decode(AccountType.self, forKey: .type)
+        icon = try container.decode(String.self, forKey: .icon)
+        color = try container.decode(String.self, forKey: .color)
+        initialBalance = try container.decode(Double.self, forKey: .initialBalance)
+        isDefault = try container.decode(Bool.self, forKey: .isDefault)
+        note = try container.decodeIfPresent(String.self, forKey: .note)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        isArchived = try container.decodeIfPresent(Bool.self, forKey: .isArchived) ?? false
+        archivedAt = try container.decodeIfPresent(Date.self, forKey: .archivedAt)
+    }
+
     var colorValue: Color {
         Color(hex: color)
     }
+}
+
+struct BalanceAdjustment: Identifiable, Codable, Hashable {
+    enum Kind: String, Codable {
+        case accountBalanceCorrection
+        case potSavedAmountCorrection
+        case accountDeletionRemovedBalance
+        case accountClosureTransfer
+        case demoDataRemoved
+    }
+
+    let id: UUID
+    let date: Date
+    let kind: Kind
+    let entityId: UUID
+    let entityName: String
+    let previousAmount: Double
+    let newAmount: Double
+    let note: String?
+
+    init(
+        id: UUID = UUID(),
+        date: Date = Date(),
+        kind: Kind,
+        entityId: UUID,
+        entityName: String,
+        previousAmount: Double,
+        newAmount: Double,
+        note: String? = nil
+    ) {
+        self.id = id
+        self.date = date
+        self.kind = kind
+        self.entityId = entityId
+        self.entityName = entityName
+        self.previousAmount = previousAmount
+        self.newAmount = newAmount
+        self.note = note
+    }
+
+    var delta: Double { newAmount - previousAmount }
 }
 
 enum AccountType: String, CaseIterable, Codable {

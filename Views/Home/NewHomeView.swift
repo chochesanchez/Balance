@@ -84,5 +84,5 @@ struct NewHomeView: View {
 }
 
 #Preview {
-    MainTabView(viewModel: BalancedViewModel())
+    MainTabView(viewModel: BalancedViewModel(), subscription: SubscriptionManager())
 }

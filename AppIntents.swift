@@ -109,14 +109,20 @@ struct QuickAddTransactionIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        // Validate the amount up front so an invalid voice value gives a useful dialog
+        // instead of a silent positive recording.
+        guard amount.isFinite, amount > 0 else {
+            return .result(dialog: "Amount must be a positive number.")
+        }
+
         let defaults = UserDefaults.standard
-        let decoder  = JSONDecoder()   // matches ViewModel — no custom date strategy
+        let decoder  = JSONDecoder()
         let encoder  = JSONEncoder()
 
         // Resolve account: use selected, then default, then first
         guard let acctData = defaults.data(forKey: "balance_accounts"),
               let allAccounts = try? decoder.decode([Account].self, from: acctData),
-              !allAccounts.isEmpty
+              let fallback = allAccounts.first
         else {
             return .result(dialog: "No account found. Open Balanced to add an account first.")
         }
@@ -126,7 +132,7 @@ struct QuickAddTransactionIntent: AppIntent {
            let found = allAccounts.first(where: { $0.id == selectedId }) {
             targetAccount = found
         } else {
-            targetAccount = allAccounts.first(where: { $0.isDefault }) ?? allAccounts[0]
+            targetAccount = allAccounts.first(where: { $0.isDefault }) ?? fallback
         }
 
         // Load existing transactions and append
@@ -139,10 +145,11 @@ struct QuickAddTransactionIntent: AppIntent {
         let txType: TransactionType = type == .income ? .income : .expense
         transactions.append(Transaction(amount: amount, type: txType, accountId: targetAccount.id))
 
-        if let encoded = try? encoder.encode(transactions) {
-            defaults.set(encoded, forKey: "balance_transactions")
-            defaults.set(Date(), forKey: "balance_transactions_date")
+        guard let encoded = try? encoder.encode(transactions) else {
+            return .result(dialog: "Could not save the transaction. Open Balanced and try again.")
         }
+        defaults.set(encoded, forKey: "balance_transactions")
+        defaults.set(Date(), forKey: "balance_transactions_date")
 
         await MainActor.run {
             NotificationCenter.default.post(name: Notification.Name("BalancedExternalDataChanged"), object: nil)

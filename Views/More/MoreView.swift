@@ -6,7 +6,9 @@ import AppIntents
 // MARK: - More View
 struct MoreView: View {
     @ObservedObject var viewModel: BalancedViewModel
-    
+    @ObservedObject var subscription: SubscriptionManager
+    @State private var showPaywall = false
+
     var body: some View {
         List {
             // Profile
@@ -29,6 +31,67 @@ struct MoreView: View {
                 }
             }
             
+            Section {
+                NavigationLink(destination: AskBalanceView(viewModel: viewModel, subscription: subscription)) {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(LinearGradient(colors: [Theme.Colors.primary, Theme.Colors.primary.opacity(0.7)],
+                                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                                .frame(width: 36, height: 36)
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.white)
+                                .accessibilityHidden(true)
+                        }
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Ask Balance")
+                                .font(.system(size: 15, weight: .semibold))
+                            Text(subscription.effectiveIsPlus ? "Private AI assistant" : "Preview — Plus to unlock")
+                                .font(.system(size: 12))
+                                .foregroundColor(Color(uiColor: .secondaryLabel))
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                .accessibilityHint("Opens the assistant")
+
+                Button {
+                    showPaywall = true
+                } label: {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(Theme.Colors.income.opacity(0.15))
+                                .frame(width: 36, height: 36)
+                            Image(systemName: subscription.effectiveIsPlus ? "checkmark.seal.fill" : "star.fill")
+                                .font(.system(size: 16))
+                                .foregroundColor(Theme.Colors.income)
+                                .accessibilityHidden(true)
+                        }
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(subscription.effectiveIsPlus ? "Balance Plus — Active" : "Balance Plus")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(Color(uiColor: .label))
+                            Text(subscription.effectiveIsPlus ? "Manage your subscription" : "AI assistant, advanced analytics, unlimited goals — $4.99/mo")
+                                .font(.system(size: 12))
+                                .foregroundColor(Color(uiColor: .secondaryLabel))
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Color(uiColor: .tertiaryLabel))
+                            .accessibilityHidden(true)
+                    }
+                    .padding(.vertical, 2)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(subscription.effectiveIsPlus ? "Balance Plus, active. Manage subscription." : "Get Balance Plus")
+            }
+
             // Features
             Section("Features") {
                 NavigationLink(destination: AnalyticsView(viewModel: viewModel)) {
@@ -65,6 +128,18 @@ struct MoreView: View {
                 NavigationLink(destination: SettingsView(viewModel: viewModel)) {
                     MoreRowView(icon: "gearshape.fill", title: "Settings", color: Color(uiColor: .systemGray))
                 }
+                NavigationLink(destination: BackupSettingsView(viewModel: viewModel)) {
+                    MoreRowView(icon: "icloud.fill", title: "Data & Backup", color: Color(hex: "5AC8FA"))
+                }
+            }
+
+            Section {
+                AppleSignInRow(identity: AppIdentity.shared)
+                    .padding(.vertical, 4)
+            } header: {
+                Text("Identity")
+            } footer: {
+                Text("Optional. Linking with Apple makes it easier to recover your Balance Plus subscription across new devices and reinstalls.")
             }
             
             // iCloud Sync
@@ -97,9 +172,21 @@ struct MoreView: View {
                 Button(action: { viewModel.resetOnboarding() }) {
                     MoreRowView(icon: "arrow.counterclockwise", title: "Reset Onboarding", color: Color(hex: "AF52DE"))
                 }
-                
+
                 Button(action: { viewModel.resetAllData() }) {
                     MoreRowView(icon: "trash.fill", title: "Reset All Data", color: Theme.Colors.expense)
+                }
+
+                Toggle(isOn: $subscription.debugForcePlus) {
+                    MoreRowView(icon: "star.fill", title: "Force Balance Plus", color: Theme.Colors.income)
+                }
+
+                Button(action: {
+                    let results = FinanceLogicTests.runAll()
+                    let passed = results.filter(\.passed).count
+                    Log.app.notice("FinanceLogicTests: \(passed)/\(results.count) passed")
+                }) {
+                    MoreRowView(icon: "checklist.checked", title: "Run Finance Tests", color: Theme.Colors.primary)
                 }
             }
             #endif
@@ -107,8 +194,11 @@ struct MoreView: View {
         .listStyle(.insetGrouped)
         .navigationTitle("More")
         .navigationBarTitleDisplayMode(.large)
+        .sheet(isPresented: $showPaywall) {
+            PaywallView(subscription: subscription)
+        }
     }
-    
+
     private var iCloudSyncRow: some View {
         HStack(spacing: 12) {
             ZStack {
@@ -1363,6 +1453,7 @@ struct GoalDetailView: View {
     @State private var contributeInitialWithdraw = false
     @State private var showEdit = false
     @State private var milestoneMessage: String? = nil
+    @State private var showCompletionSheet = false
 
     private var currentGoal: Goal {
         viewModel.goals.first(where: { $0.id == goal.id }) ?? goal
@@ -1434,35 +1525,69 @@ struct GoalDetailView: View {
                         // Contribute buttons — hidden for linked goals
                         if currentGoal.linkedAccountId == nil && currentGoal.subType != .debtPayoff {
                             HStack(spacing: 12) {
-                                Button(action: { contributeInitialWithdraw = false; showContribute = true }) {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "plus.circle.fill")
-                                            .font(.system(size: 14))
-                                        Text("Add Money")
-                                            .font(.system(size: 14, weight: .medium))
+                                if currentGoal.isCompleted {
+                                    Label("Completed", systemImage: "checkmark.seal.fill")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(Theme.Colors.income)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 8)
+                                        .background(Theme.Colors.income.opacity(0.12))
+                                        .clipShape(Capsule())
+                                } else {
+                                    Button(action: { contributeInitialWithdraw = false; showContribute = true }) {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "plus.circle.fill")
+                                                .font(.system(size: 14))
+                                            Text("Add Money")
+                                                .font(.system(size: 14, weight: .medium))
+                                        }
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 10)
+                                        .background(currentGoal.colorValue)
+                                        .cornerRadius(20)
+                                    }
+
+                                    if viewModel.effectiveCurrentAmount(for: currentGoal) > 0 {
+                                        Button(action: { contributeInitialWithdraw = true; showContribute = true }) {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: "minus.circle.fill")
+                                                    .font(.system(size: 14))
+                                                Text("Withdraw")
+                                                    .font(.system(size: 14, weight: .medium))
+                                            }
+                                            .foregroundColor(currentGoal.colorValue)
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 10)
+                                            .background(currentGoal.colorValue.opacity(0.1))
+                                            .cornerRadius(20)
+                                        }
+                                    }
+                                }
+                            }
+
+                            if currentGoal.goalType == .goal
+                                && !currentGoal.isCompleted
+                                && currentGoal.targetAmount > 0
+                                && currentGoal.currentAmount >= currentGoal.targetAmount {
+                                Button {
+                                    showCompletionSheet = true
+                                    Haptics.medium()
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "checkmark.seal.fill")
+                                        Text("Goal reached — complete it")
+                                            .font(.system(size: 14, weight: .semibold))
                                     }
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 10)
-                                    .background(currentGoal.colorValue)
-                                    .cornerRadius(20)
+                                    .frame(maxWidth: .infinity)
+                                    .background(Theme.Colors.income)
+                                    .cornerRadius(14)
                                 }
-
-                                if viewModel.effectiveCurrentAmount(for: currentGoal) > 0 {
-                                    Button(action: { contributeInitialWithdraw = true; showContribute = true }) {
-                                        HStack(spacing: 6) {
-                                            Image(systemName: "minus.circle.fill")
-                                                .font(.system(size: 14))
-                                            Text("Withdraw")
-                                                .font(.system(size: 14, weight: .medium))
-                                        }
-                                        .foregroundColor(currentGoal.colorValue)
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 10)
-                                        .background(currentGoal.colorValue.opacity(0.1))
-                                        .cornerRadius(20)
-                                    }
-                                }
+                                .accessibilityLabel("Goal reached, complete it")
+                                .accessibilityHint("Opens the completion options")
                             }
                         } else if let linkedAccount = viewModel.accounts.first(where: { $0.id == currentGoal.linkedAccountId }) {
                             HStack(spacing: 6) {
@@ -1717,7 +1842,16 @@ struct GoalDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Edit") { showEdit = true }
+                Menu {
+                    Button("Edit") { showEdit = true }
+                    if currentGoal.goalType == .goal && !currentGoal.isCompleted {
+                        Button("Mark as Completed…") { showCompletionSheet = true }
+                    } else if currentGoal.goalType == .goal && currentGoal.isCompleted {
+                        Button("Reopen Goal") { viewModel.reopenGoal(currentGoal) }
+                    }
+                } label: {
+                    Text("Options")
+                }
             }
         }
         .sheet(isPresented: $showContribute) {
@@ -1726,6 +1860,11 @@ struct GoalDetailView: View {
         }
         .sheet(isPresented: $showEdit) {
             EditGoalView(viewModel: viewModel, goal: currentGoal)
+        }
+        .sheet(isPresented: $showCompletionSheet) {
+            GoalCompletionSheet(viewModel: viewModel, goal: currentGoal)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         .onChange(of: viewModel.goals.map(\.id)) { _, newIds in
             if !newIds.contains(goal.id) { dismiss() }
@@ -1928,6 +2067,8 @@ struct EditGoalView: View {
     @State private var showAllIcons = false
     @State private var linkedAccountId: UUID?
     @State private var linkedDebtId: UUID?
+    @State private var currentAmountText: String
+    @State private var originalCurrentAmount: Double
 
     private let goalIcons = [
         "star.fill", "target", "banknote.fill", "chart.line.uptrend.xyaxis",
@@ -1955,6 +2096,8 @@ struct EditGoalView: View {
         _selectedIcon = State(initialValue: goal.icon)
         _linkedAccountId = State(initialValue: goal.linkedAccountId)
         _linkedDebtId = State(initialValue: goal.linkedDebtId)
+        _currentAmountText = State(initialValue: String(format: "%.2f", goal.currentAmount))
+        _originalCurrentAmount = State(initialValue: goal.currentAmount)
 
         var colorIdx = 0
         for (index, color) in Theme.Colors.categoryColors.enumerated() {
@@ -1996,6 +2139,17 @@ struct EditGoalView: View {
                             TextField("Title", text: $title)
                                 .font(.system(size: 15))
                                 .multilineTextAlignment(.trailing)
+                        }
+
+                        if goal.linkedAccountId == nil && goal.subType != .balance {
+                            Divider().padding(.leading, 16)
+                            FormRow(label: goal.goalType == .envelope ? "Saved" : "Current") {
+                                TextField("0.00", text: $currentAmountText)
+                                    .font(.system(size: 15))
+                                    .multilineTextAlignment(.trailing)
+                                    .keyboardType(.decimalPad)
+                                    .accessibilityHint("Use this to correct your saved amount. This will not count as income or expense.")
+                            }
                         }
 
                         if goal.goalType == .goal {
@@ -2171,6 +2325,14 @@ struct EditGoalView: View {
             updated.itemName = itemName.isEmpty ? nil : itemName
         }
         viewModel.updateGoal(updated)
+
+        if goal.linkedAccountId == nil && goal.subType != .balance {
+            let parsed = Double(currentAmountText.replacingOccurrences(of: ",", with: ".")) ?? originalCurrentAmount
+            if abs(parsed - originalCurrentAmount) > 0.005 {
+                viewModel.setGoalCurrentAmountWithLog(updated, to: parsed)
+            }
+        }
+
         Haptics.success()
         dismiss()
     }
@@ -3637,6 +3799,6 @@ struct AboutBalancedView: View {
 
 #Preview {
     NavigationStack {
-        MoreView(viewModel: BalancedViewModel())
+        MoreView(viewModel: BalancedViewModel(), subscription: SubscriptionManager())
     }
 }

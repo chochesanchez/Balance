@@ -345,14 +345,19 @@ extension View {
 struct SlideUpAppearModifier: ViewModifier {
     let delay: Double
     @State private var appeared = false
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func body(content: Content) -> some View {
         content
-            .offset(y: appeared ? 0 : 20)
-            .opacity(appeared ? 1 : 0)
+            .offset(y: appeared || reduceMotion ? 0 : 20)
+            .opacity(appeared || reduceMotion ? 1 : 0)
             .onAppear {
-                withAnimation(.spring(duration: 0.5, bounce: 0.3).delay(delay)) {
+                if reduceMotion {
                     appeared = true
+                } else {
+                    withAnimation(.spring(duration: 0.5, bounce: 0.3).delay(delay)) {
+                        appeared = true
+                    }
                 }
             }
     }
@@ -362,14 +367,19 @@ struct SlideUpAppearModifier: ViewModifier {
 struct FadeInAppearModifier: ViewModifier {
     let delay: Double
     @State private var appeared = false
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func body(content: Content) -> some View {
         content
-            .opacity(appeared ? 1 : 0)
-            .scaleEffect(appeared ? 1 : 0.95)
+            .opacity(appeared || reduceMotion ? 1 : 0)
+            .scaleEffect(appeared || reduceMotion ? 1 : 0.95)
             .onAppear {
-                withAnimation(.smooth(duration: 0.4).delay(delay)) {
+                if reduceMotion {
                     appeared = true
+                } else {
+                    withAnimation(.smooth(duration: 0.4).delay(delay)) {
+                        appeared = true
+                    }
                 }
             }
     }
@@ -378,22 +388,29 @@ struct FadeInAppearModifier: ViewModifier {
 // MARK: - Shimmer Modifier
 struct ShimmerModifier: ViewModifier {
     @State private var phase: CGFloat = 0
-    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func body(content: Content) -> some View {
-        content
-            .overlay(
-                GeometryReader { geometry in
-                    Theme.Gradients.shimmer
-                        .frame(width: geometry.size.width * 2)
-                        .offset(x: -geometry.size.width + phase * geometry.size.width * 3)
+        if reduceMotion {
+            // Respect Reduce Motion: render the unmodified content rather than an
+            // animated shimmer loop.
+            content
+        } else {
+            content
+                .overlay(
+                    GeometryReader { geometry in
+                        Theme.Gradients.shimmer
+                            .frame(width: geometry.size.width * 2)
+                            .offset(x: -geometry.size.width + phase * geometry.size.width * 3)
+                    }
+                    .mask(content)
+                )
+                .onAppear {
+                    withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
+                        phase = 1
+                    }
                 }
-                .mask(content)
-            )
-            .onAppear {
-                withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
-                    phase = 1
-                }
-            }
+        }
     }
 }
 

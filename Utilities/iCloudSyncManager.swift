@@ -1,9 +1,5 @@
 import Foundation
 
-// MARK: - iCloud Sync Manager
-/// Handles reading and writing JSON data to the app's iCloud ubiquity container.
-/// Works alongside UserDefaults — UserDefaults remains the fast local cache,
-/// iCloud files serve as the cross-device sync layer.
 @MainActor
 final class iCloudSyncManager {
     static let shared = iCloudSyncManager()
@@ -29,15 +25,28 @@ final class iCloudSyncManager {
     // MARK: - Write
 
     func write(_ data: Data, filename: String) {
-        guard let url = url(for: filename) else { return }
-        // Ensure the Documents directory exists in iCloud container
-        try? FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        var error: NSError?
-        NSFileCoordinator().coordinate(writingItemAt: url, options: .forReplacing, error: &error) { coordURL in
-            try? data.write(to: coordURL, options: .atomic)
+        guard let url = url(for: filename) else {
+            Log.sync.warning("iCloud write skipped — no documents URL for \(filename, privacy: .public)")
+            return
+        }
+        do {
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+        } catch {
+            Log.sync.warning("Failed to create iCloud directory: \(error.localizedDescription, privacy: .public)")
+        }
+        var coordError: NSError?
+        NSFileCoordinator().coordinate(writingItemAt: url, options: .forReplacing, error: &coordError) { coordURL in
+            do {
+                try data.write(to: coordURL, options: .atomic)
+            } catch {
+                Log.sync.error("iCloud write failed for \(filename, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        if let coordError {
+            Log.sync.error("iCloud coordinator (write) error: \(coordError.localizedDescription, privacy: .public)")
         }
     }
 
@@ -46,9 +55,19 @@ final class iCloudSyncManager {
     func read(filename: String) -> Data? {
         guard let url = url(for: filename) else { return nil }
         var result: Data?
-        var error: NSError?
-        NSFileCoordinator().coordinate(readingItemAt: url, options: .withoutChanges, error: &error) { coordURL in
-            result = try? Data(contentsOf: coordURL)
+        var coordError: NSError?
+        NSFileCoordinator().coordinate(readingItemAt: url, options: .withoutChanges, error: &coordError) { coordURL in
+            do {
+                result = try Data(contentsOf: coordURL)
+            } catch {
+                let nsErr = error as NSError
+                if nsErr.code != NSFileReadNoSuchFileError {
+                    Log.sync.error("iCloud read failed for \(filename, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
+        if let coordError {
+            Log.sync.error("iCloud coordinator (read) error: \(coordError.localizedDescription, privacy: .public)")
         }
         return result
     }

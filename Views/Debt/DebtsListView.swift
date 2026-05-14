@@ -89,6 +89,7 @@ struct DebtsListView: View {
                 Image(systemName: icon)
                     .font(.system(size: 13))
                     .foregroundColor(color)
+                    .accessibilityHidden(true)
                 Text(title)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(Color(uiColor: .secondaryLabel))
@@ -103,6 +104,8 @@ struct DebtsListView: View {
         .padding(16)
         .background(Color(uiColor: .secondarySystemGroupedBackground))
         .cornerRadius(14)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title): \(formatCurrency(amount, currency: viewModel.appState.selectedCurrency))")
     }
 
     // MARK: - Recommendations

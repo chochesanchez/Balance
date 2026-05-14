@@ -8,7 +8,7 @@ import PackageDescription
 import AppleProductTypes
 
 let package = Package(
-    name: "Balanced",
+    name: "Balance",
     platforms: [
         .iOS("17.0")
     ],

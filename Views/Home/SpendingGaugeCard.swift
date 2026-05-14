@@ -14,6 +14,7 @@ struct SpendingGaugeCard: View {
     @State private var animatedProgress: Double = 0
     @State private var scope: GaugeScope = .week
     @State private var showLimitEditor = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var spendingLimit: Double {
         let base = viewModel.appState.weeklySpendingLimit
@@ -237,8 +238,13 @@ struct SpendingGaugeCard: View {
     }
 
     private func animateGauge() {
-        withAnimation(.spring(response: 0.9, dampingFraction: 0.75).delay(0.1)) {
-            animatedProgress = spendingLimit > 0 ? remainingRatio : 1.0
+        let target = spendingLimit > 0 ? remainingRatio : 1.0
+        if reduceMotion {
+            animatedProgress = target
+        } else {
+            withAnimation(.spring(response: 0.9, dampingFraction: 0.75).delay(0.1)) {
+                animatedProgress = target
+            }
         }
     }
 }

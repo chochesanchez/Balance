@@ -18,7 +18,9 @@ struct DebtPaymentSheet: View {
     private var parsedAmount: Double? {
         let cleaned = amountText.replacingOccurrences(of: ",", with: ".")
         guard let v = Double(cleaned), v > 0 else { return nil }
-        return min(v, debt.remaining + 0.01)
+        // Round to two decimals and cap at remaining to avoid floating-point overpay.
+        let capped = min((v * 100).rounded() / 100, max(liveDebt.remaining, 0))
+        return capped > 0 ? capped : nil
     }
 
     private var isValid: Bool { parsedAmount != nil }
@@ -62,12 +64,14 @@ struct DebtPaymentSheet: View {
                         Text(Locale.current.currencySymbol ?? "$")
                             .font(.system(size: 32, weight: .bold, design: .rounded))
                             .foregroundColor(Color(uiColor: .label).opacity(amountText.isEmpty ? 0.25 : 1))
+                            .accessibilityHidden(true)
                         TextField("0", text: $amountText)
                             .font(.system(size: 40, weight: .bold, design: .rounded))
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.center)
                             .foregroundColor(Color(uiColor: .label))
                             .focused($amountFocused)
+                            .accessibilityLabel("Payment amount in \(viewModel.appState.selectedCurrency)")
                     }
                     .frame(maxWidth: 200)
                 }
@@ -93,17 +97,20 @@ struct DebtPaymentSheet: View {
                                         Image(systemName: account.icon)
                                             .font(.system(size: 16))
                                             .foregroundColor(selected ? .white : account.colorValue)
-                                            .frame(width: 36, height: 36)
+                                            .frame(width: 44, height: 44)
                                             .background(selected ? account.colorValue : account.colorValue.opacity(0.12))
                                             .clipShape(Circle())
+                                            .accessibilityHidden(true)
                                         Text(account.name)
                                             .font(.system(size: 11, weight: selected ? .semibold : .regular))
                                             .foregroundColor(selected ? Color(uiColor: .label) : Color(uiColor: .secondaryLabel))
                                             .lineLimit(1)
                                     }
-                                    .frame(width: 64)
+                                    .frame(width: 72)
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityLabel(account.name)
+                                .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -138,8 +145,8 @@ struct DebtPaymentSheet: View {
                 .cornerRadius(14)
                 .padding(.horizontal, 20)
 
-                // Mark settled toggle
-                if let amount = parsedAmount, amount >= liveDebt.remaining - 0.01 {
+                // Mark settled toggle (allow a 1¢ tolerance for floating-point math)
+                if let amount = parsedAmount, amount >= max(liveDebt.remaining - 0.005, 0) {
                     Toggle("Mark debt as fully settled", isOn: $markSettled)
                         .tint(Color(hex: "34C759"))
                         .padding(.horizontal, 20)
@@ -174,6 +181,17 @@ struct DebtPaymentSheet: View {
                         Button("Done") { amountFocused = false }
                             .fontWeight(.semibold)
                     }
+                }
+            }
+            .onAppear {
+                // Default the source account to the user's default, or first available.
+                if selectedAccountId == nil {
+                    selectedAccountId = viewModel.accounts.first(where: { $0.isDefault })?.id
+                        ?? viewModel.accounts.first?.id
+                }
+                // Focus the amount field for keyboard-first entry.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    amountFocused = true
                 }
             }
         }

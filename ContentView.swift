@@ -2,11 +2,13 @@ import SwiftUI
 
 struct MainTabView: View {
     @ObservedObject var viewModel: BalancedViewModel
+    @ObservedObject var subscription: SubscriptionManager
     @StateObject private var navState = NavigationState.shared
     @State private var selectedTab: Int
-    
-    init(viewModel: BalancedViewModel) {
+
+    init(viewModel: BalancedViewModel, subscription: SubscriptionManager) {
         self.viewModel = viewModel
+        self.subscription = subscription
         self._selectedTab = State(initialValue: viewModel.appState.defaultTab)
     }
     
@@ -45,7 +47,7 @@ struct MainTabView: View {
             .tag(3)
             
             NavigationStack {
-                MoreView(viewModel: viewModel)
+                MoreView(viewModel: viewModel, subscription: subscription)
             }
             .tabItem {
                 Label("More", systemImage: Theme.Icons.more)
@@ -63,5 +65,5 @@ struct MainTabView: View {
 }
 
 #Preview {
-    MainTabView(viewModel: BalancedViewModel())
+    MainTabView(viewModel: BalancedViewModel(), subscription: SubscriptionManager())
 }

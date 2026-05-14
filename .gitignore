@@ -1,5 +1,7 @@
 # macOS
 .DS_Store
+Thumbs.db
+desktop.ini
 
 # Xcode
 xcuserdata/
@@ -7,15 +9,22 @@ DerivedData/
 *.xcuserstate
 *.xccheckout
 *.xcscmblueprint
+*.moved-aside
+*.perspectivev3
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
 
-# SwiftPM
+# Swift Playgrounds / SwiftPM local state
 .build/
+.swiftpm/xcode/xcuserdata/
+.swiftpm/xcode/package.xcworkspace/xcuserdata/
+.swiftpm/configuration/
 
-# CocoaPods
+# Package managers
 Pods/
 Podfile.lock
-
-# Carthage
 Carthage/Build/
 
 # Fastlane
@@ -24,6 +33,34 @@ fastlane/Preview.html
 fastlane/screenshots
 fastlane/test_output
 
-# Environment
+# Secrets and signing
 .env
+.env.*
+*.pem
+*.p12
+*.p8
+*.cer
+*.mobileprovision
+AuthKey_*.p8
+GoogleService-Info.plist
+secrets.plist
 
+# Editors / IDEs / agents
+.cursor/
+.aider*
+.idea/
+.vscode/
+.history/
+.claude/
+memory/
+*.swp
+*.swo
+*.bak
+
+# Logs / crashes
+*.log
+*.crash
+*.ips
+
+# Node (in case scripts get added)
+node_modules/

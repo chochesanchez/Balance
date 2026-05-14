@@ -16,6 +16,8 @@ class BalancedViewModel: ObservableObject {
     @Published var goals: [Goal] = []
     @Published var recurringTransactions: [RecurringTransaction] = []
     @Published var debts: [Debt] = []
+    @Published var adjustments: [BalanceAdjustment] = []
+    @Published var demoTransactionIds: Set<UUID> = []
     @Published var userProfile: UserProfile = UserProfile()
     @Published var appState: AppState = AppState()
     /// Set when a contribution crosses a 25/50/75/100% milestone. Views observe this to show a celebration banner.
@@ -34,6 +36,7 @@ class BalancedViewModel: ObservableObject {
     private let decoder = JSONDecoder()
     private let sync = iCloudSyncManager.shared
     private var metadataQuery: NSMetadataQuery?
+    private var observerTokens: [NSObjectProtocol] = []
 
     // Storage Keys
     private enum Keys {
@@ -43,11 +46,12 @@ class BalancedViewModel: ObservableObject {
         static let goals         = "balance_goals"
         static let recurring     = "balance_recurring"
         static let debts         = "balance_debts"
+        static let adjustments   = "balance_adjustments"
+        static let demoTxIds     = "balance_demoTransactionIds"
         static let userProfile   = "balance_userProfile"
         static let appState      = "balance_appState"
     }
 
-    // iCloud file names
     private enum iCloudFiles {
         static let accounts      = "accounts.json"
         static let categories    = "categories.json"
@@ -55,6 +59,7 @@ class BalancedViewModel: ObservableObject {
         static let goals         = "goals.json"
         static let recurring     = "recurring.json"
         static let debts         = "debts.json"
+        static let adjustments   = "adjustments.json"
         static let userProfile   = "userProfile.json"
         static let appState      = "appState.json"
     }
@@ -65,6 +70,15 @@ class BalancedViewModel: ObservableObject {
         setupDefaultsIfNeeded()
         checkAndProcessRecurring()
         requestNotificationPermission()
+    }
+
+    isolated deinit {
+        // Stop the iCloud metadata query and tear down notification observers so the
+        // ViewModel does not leak ongoing system work if it's ever recreated.
+        metadataQuery?.stop()
+        for token in observerTokens {
+            NotificationCenter.default.removeObserver(token)
+        }
     }
     
     private func setupDefaultsIfNeeded() {
@@ -184,6 +198,18 @@ class BalancedViewModel: ObservableObject {
             saveAccounts()
         }
     }
+
+    func setAccountBalance(_ account: Account, to newBalance: Double) {
+        guard let index = accounts.firstIndex(where: { $0.id == account.id }) else { return }
+        guard newBalance.isFinite else { return }
+        let rounded = (newBalance * 100).rounded() / 100
+        let txEffect = balanceForAccount(account) - account.initialBalance
+        var updated = account
+        updated.initialBalance = rounded - txEffect
+        accounts[index] = updated
+        saveAccounts()
+        refreshWeeklyHistory()
+    }
     
     func deleteAccount(_ account: Account) {
         // Don't delete if it's the only account
@@ -266,6 +292,10 @@ class BalancedViewModel: ObservableObject {
         saveTransactions()
         refreshWeeklyHistory()
         Haptics.success()
+        let userOriginated = !demoTransactionIds.contains(transaction.id)
+        if userOriginated {
+            RatingManager.shared.registerPositiveEvent(.recordedTransaction)
+        }
     }
 
     func updateTransaction(_ transaction: Transaction) {
@@ -415,8 +445,12 @@ class BalancedViewModel: ObservableObject {
     // MARK: - Goal Functions
     
     func addGoal(_ goal: Goal) {
+        let isFirstGoal = goals.allSatisfy { $0.goalType != .goal }
         goals.append(goal)
         saveGoals()
+        if goal.goalType == .goal && isFirstGoal {
+            RatingManager.shared.registerPositiveEvent(.createdFirstGoal)
+        }
     }
     
     func updateGoal(_ goal: Goal) {
@@ -426,6 +460,91 @@ class BalancedViewModel: ObservableObject {
         }
     }
     
+    func setGoalCurrentAmount(_ goal: Goal, to newAmount: Double) {
+        guard let index = goals.firstIndex(where: { $0.id == goal.id }) else { return }
+        guard newAmount.isFinite else { return }
+        let rounded = max(0, (newAmount * 100).rounded() / 100)
+        var updated = goal
+        updated.currentAmount = rounded
+        if updated.goalType == .goal && updated.targetAmount > 0 {
+            updated.isCompleted = rounded >= updated.targetAmount
+        }
+        goals[index] = updated
+        saveGoals()
+    }
+
+    func contributeFromPot(_ pot: Goal, toGoal goal: Goal, amount: Double) {
+        guard amount.isFinite, amount > 0 else { return }
+        guard pot.goalType == .envelope, goal.goalType == .goal else { return }
+        let rounded = (amount * 100).rounded() / 100
+        let actualAmount = min(rounded, pot.currentAmount)
+        guard actualAmount > 0 else { return }
+
+        if let pIdx = goals.firstIndex(where: { $0.id == pot.id }) {
+            var updatedPot = goals[pIdx]
+            updatedPot.currentAmount = max(0, updatedPot.currentAmount - actualAmount)
+            goals[pIdx] = updatedPot
+        }
+        if let gIdx = goals.firstIndex(where: { $0.id == goal.id }) {
+            var updatedGoal = goals[gIdx]
+            updatedGoal.currentAmount += actualAmount
+            if updatedGoal.targetAmount > 0 && updatedGoal.currentAmount >= updatedGoal.targetAmount {
+                updatedGoal.isCompleted = true
+                checkMilestoneCrossing(prev: goal.currentAmount, new: updatedGoal.currentAmount, target: updatedGoal.targetAmount, goalId: goal.id)
+            }
+            goals[gIdx] = updatedGoal
+        }
+        saveGoals()
+    }
+
+    func completeGoalWithPurchase(_ goal: Goal, fromAccountId: UUID, spendAmount: Double, categoryId: UUID? = nil) {
+        guard spendAmount.isFinite, spendAmount > 0 else { return }
+        let rounded = (spendAmount * 100).rounded() / 100
+        let tx = Transaction(
+            amount: rounded,
+            type: .expense,
+            accountId: fromAccountId,
+            categoryId: categoryId,
+            title: goal.title,
+            note: "Goal purchase",
+            goalId: goal.id
+        )
+        addTransaction(tx)
+        if let idx = goals.firstIndex(where: { $0.id == goal.id }) {
+            var updated = goals[idx]
+            updated.isCompleted = true
+            goals[idx] = updated
+            saveGoals()
+            RatingManager.shared.registerPositiveEvent(.completedGoal)
+        }
+    }
+
+    func markGoalCompleted(_ goal: Goal) {
+        guard let idx = goals.firstIndex(where: { $0.id == goal.id }) else { return }
+        guard !goals[idx].isCompleted else { return }
+        goals[idx].isCompleted = true
+        saveGoals()
+        RatingManager.shared.registerPositiveEvent(.completedGoal)
+    }
+
+    func reopenGoal(_ goal: Goal) {
+        guard let idx = goals.firstIndex(where: { $0.id == goal.id }) else { return }
+        goals[idx].isCompleted = false
+        saveGoals()
+    }
+
+    private func checkMilestoneCrossing(prev: Double, new: Double, target: Double, goalId: UUID) {
+        guard target > 0 else { return }
+        let prevPct = prev / target
+        let newPct = new / target
+        for pct in [1.0, 0.75, 0.5, 0.25] where prevPct < pct && newPct >= pct {
+            DispatchQueue.main.async {
+                self.recentMilestone = (goalId: goalId, pct: Int(pct * 100))
+            }
+            break
+        }
+    }
+
     func deleteGoal(_ goal: Goal) {
         // Null out goalId on linked transactions so orphaned transfers don't ghost account balances
         let hasLinkedTx = transactions.contains { $0.goalId == goal.id }
@@ -557,10 +676,19 @@ class BalancedViewModel: ObservableObject {
     }
     
     func contributeToGoal(_ goal: Goal, amount: Double, fromAccountId: UUID? = nil) {
+        guard amount.isFinite, amount != 0 else { return }
+        let amt = (amount * 100).rounded() / 100
+
         if let index = goals.firstIndex(where: { $0.id == goal.id }) {
             var updated = goal
+            let appliedAmount: Double
+            if amt < 0 {
+                appliedAmount = max(amt, -updated.currentAmount)
+            } else {
+                appliedAmount = amt
+            }
             let prevProgress = updated.targetAmount > 0 ? updated.currentAmount / updated.targetAmount : 0
-            updated.currentAmount += amount
+            updated.currentAmount += appliedAmount
             if updated.currentAmount < 0 { updated.currentAmount = 0 }
             if updated.goalType == .goal && updated.targetAmount > 0 && updated.currentAmount >= updated.targetAmount {
                 updated.isCompleted = true
@@ -569,12 +697,12 @@ class BalancedViewModel: ObservableObject {
             saveGoals()
 
             // Streak: only for manual goals with a positive contribution
-            if amount > 0 && updated.linkedAccountId == nil {
+            if appliedAmount > 0 && updated.linkedAccountId == nil {
                 updateGoalStreak(for: goal.id)
             }
 
             // Milestone detection: check if we just crossed 25/50/75/100%
-            if amount > 0 && updated.targetAmount > 0 {
+            if appliedAmount > 0 && updated.targetAmount > 0 {
                 let newProgress = updated.currentAmount / updated.targetAmount
                 for pct in [1.0, 0.75, 0.5, 0.25] {
                     if prevProgress < pct && newProgress >= pct {
@@ -586,22 +714,25 @@ class BalancedViewModel: ObservableObject {
                 }
             }
 
-            if let accountId = fromAccountId, abs(amount) > 0 {
-                let isWithdraw = amount < 0
-                let typeName = goal.goalType == .envelope ? "Savings Pot" : "Goal"
-                let title = isWithdraw
-                    ? "Withdraw from \(goal.title)"
-                    : "Add to \(goal.title)"
+            if let accountId = fromAccountId, abs(appliedAmount) > 0 {
+                let isWithdraw = appliedAmount < 0
+                let typeName = goal.goalType == .envelope ? "Pot" : "Goal"
+                let title: String
+                let note: String
+                if isWithdraw {
+                    title = "Withdraw from \(goal.title)"
+                    note = goal.goalType == .envelope ? "Pot withdrawal" : "Goal withdrawal"
+                } else {
+                    title = "Add to \(goal.title)"
+                    note = goal.goalType == .envelope ? "Pot deposit" : "Goal contribution"
+                }
                 let transaction = Transaction(
-                    amount: abs(amount),
+                    amount: abs(appliedAmount),
                     type: .transfer,
-                    // Contribution: debit fromAccount (accountId = source, toAccountId = nil → pot)
-                    // Withdrawal:   credit fromAccount (accountId = goal.id acts as virtual pot UUID
-                    //               matching no real account, toAccountId = destination account)
                     accountId: isWithdraw ? goal.id : accountId,
                     toAccountId: isWithdraw ? accountId : nil,
                     title: title,
-                    note: "\(typeName) transfer",
+                    note: "\(typeName) — \(note)",
                     goalId: goal.id
                 )
                 addTransaction(transaction)
@@ -1334,7 +1465,9 @@ class BalancedViewModel: ObservableObject {
 
     private func loadFromUserDefaults() {
         loadAccounts(); loadCategories(); loadTransactions()
-        loadGoals(); loadRecurring(); loadDebts(); loadUserProfile(); loadAppState()
+        loadGoals(); loadRecurring(); loadDebts()
+        loadAdjustments(); loadDemoIds()
+        loadUserProfile(); loadAppState()
     }
 
     private func loadWithiCloudMerge() {
@@ -1344,8 +1477,10 @@ class BalancedViewModel: ObservableObject {
         loadMerged([Goal].self,                 localKey: Keys.goals,        iCloudFile: iCloudFiles.goals)        { self.goals = $0 }
         loadMerged([RecurringTransaction].self, localKey: Keys.recurring,    iCloudFile: iCloudFiles.recurring)    { self.recurringTransactions = $0 }
         loadMerged([Debt].self,                 localKey: Keys.debts,        iCloudFile: iCloudFiles.debts)        { self.debts = $0 }
+        loadMerged([BalanceAdjustment].self,    localKey: Keys.adjustments,  iCloudFile: iCloudFiles.adjustments)  { self.adjustments = $0 }
         loadMerged(UserProfile.self,            localKey: Keys.userProfile,  iCloudFile: iCloudFiles.userProfile)  { self.userProfile = $0 }
         loadMerged(AppState.self,               localKey: Keys.appState,     iCloudFile: iCloudFiles.appState)     { self.appState = $0 }
+        loadDemoIds()
     }
 
     /// Loads a Codable type, preferring iCloud data if it is newer than the local copy.
@@ -1366,7 +1501,7 @@ class BalancedViewModel: ObservableObject {
 
     private func setupExternalObservers() {
         // Reload when app returns to foreground (picks up changes from other devices)
-        NotificationCenter.default.addObserver(
+        let fgToken = NotificationCenter.default.addObserver(
             forName: UIApplication.willEnterForegroundNotification,
             object: nil, queue: .main
         ) { [weak self] _ in
@@ -1376,8 +1511,10 @@ class BalancedViewModel: ObservableObject {
                 self.refreshWeeklyHistory()
             }
         }
+        observerTokens.append(fgToken)
+
         // Reload when Back Tap intent writes a transaction while the app is backgrounded
-        NotificationCenter.default.addObserver(
+        let extToken = NotificationCenter.default.addObserver(
             forName: Notification.Name("BalancedExternalDataChanged"),
             object: nil, queue: .main
         ) { [weak self] _ in
@@ -1386,6 +1523,7 @@ class BalancedViewModel: ObservableObject {
                 self?.refreshWeeklyHistory()
             }
         }
+        observerTokens.append(extToken)
     }
 
     private func startMetadataQuery() {
@@ -1394,7 +1532,7 @@ class BalancedViewModel: ObservableObject {
         q.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
         q.predicate = NSPredicate(format: "%K LIKE '*.json'", NSMetadataItemFSNameKey)
         q.notificationBatchingInterval = 1.0
-        NotificationCenter.default.addObserver(
+        let token = NotificationCenter.default.addObserver(
             forName: .NSMetadataQueryDidUpdate,
             object: q, queue: .main
         ) { [weak self] _ in
@@ -1404,6 +1542,7 @@ class BalancedViewModel: ObservableObject {
                 self?.lastSyncDate = Date()
             }
         }
+        observerTokens.append(token)
         q.start()
         metadataQuery = q
     }
@@ -1530,14 +1669,245 @@ class BalancedViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Debug / Reset
-    
+    private func loadAdjustments() {
+        if let data = defaults.data(forKey: Keys.adjustments),
+           let decoded = try? decoder.decode([BalanceAdjustment].self, from: data) {
+            adjustments = decoded
+        }
+    }
+
+    private func saveAdjustments() {
+        if let encoded = try? encoder.encode(adjustments) {
+            defaults.set(encoded, forKey: Keys.adjustments)
+            defaults.set(Date(), forKey: Keys.adjustments + "_date")
+            if sync.isAvailable { sync.write(encoded, filename: iCloudFiles.adjustments); lastSyncDate = Date() }
+        }
+    }
+
+    private func loadDemoIds() {
+        if let array = defaults.array(forKey: Keys.demoTxIds) as? [String] {
+            demoTransactionIds = Set(array.compactMap(UUID.init))
+        }
+    }
+
+    private func saveDemoIds() {
+        defaults.set(demoTransactionIds.map { $0.uuidString }, forKey: Keys.demoTxIds)
+    }
+
+    func recordAdjustment(_ adjustment: BalanceAdjustment) {
+        adjustments.append(adjustment)
+        saveAdjustments()
+        Log.finance.notice("Adjustment: \(adjustment.kind.rawValue, privacy: .public) \(adjustment.entityName, privacy: .public) \(adjustment.previousAmount) → \(adjustment.newAmount)")
+    }
+
+    var activeAccounts: [Account] {
+        accounts.filter { !$0.isArchived }
+    }
+
+    var archivedAccounts: [Account] {
+        accounts.filter { $0.isArchived }
+    }
+
+    func archiveAccount(_ account: Account) {
+        guard let idx = accounts.firstIndex(where: { $0.id == account.id }) else { return }
+        accounts[idx].isArchived = true
+        accounts[idx].archivedAt = Date()
+        if accounts[idx].isDefault {
+            accounts[idx].isDefault = false
+            if let firstActive = accounts.firstIndex(where: { !$0.isArchived }) {
+                accounts[firstActive].isDefault = true
+            }
+        }
+        saveAccounts()
+    }
+
+    func unarchiveAccount(_ account: Account) {
+        guard let idx = accounts.firstIndex(where: { $0.id == account.id }) else { return }
+        accounts[idx].isArchived = false
+        accounts[idx].archivedAt = nil
+        saveAccounts()
+    }
+
+    func closeAccountByTransferring(_ account: Account, toAccountId destinationId: UUID) {
+        guard let destination = accounts.first(where: { $0.id == destinationId }),
+              destination.id != account.id else { return }
+        let remaining = balanceForAccount(account)
+        if abs(remaining) > 0.005 {
+            let tx = Transaction(
+                amount: abs(remaining),
+                type: .transfer,
+                accountId: remaining >= 0 ? account.id : destination.id,
+                toAccountId: remaining >= 0 ? destination.id : account.id,
+                title: "Closing \(account.name)",
+                note: "Account closure transfer"
+            )
+            addTransaction(tx)
+            recordAdjustment(BalanceAdjustment(
+                kind: .accountClosureTransfer,
+                entityId: account.id,
+                entityName: account.name,
+                previousAmount: balanceForAccount(account),
+                newAmount: 0,
+                note: "Transferred to \(destination.name)"
+            ))
+        }
+        archiveAccount(account)
+    }
+
+    func deleteAccountAndRemoveBalance(_ account: Account) {
+        let current = balanceForAccount(account)
+        recordAdjustment(BalanceAdjustment(
+            kind: .accountDeletionRemovedBalance,
+            entityId: account.id,
+            entityName: account.name,
+            previousAmount: current,
+            newAmount: 0,
+            note: "Account deleted with balance removed"
+        ))
+        deleteAccount(account)
+    }
+
+    func setAccountBalanceWithLog(_ account: Account, to newBalance: Double, note: String? = nil) {
+        let previous = balanceForAccount(account)
+        setAccountBalance(account, to: newBalance)
+        let displayed = accounts.first(where: { $0.id == account.id }).map { balanceForAccount($0) } ?? newBalance
+        recordAdjustment(BalanceAdjustment(
+            kind: .accountBalanceCorrection,
+            entityId: account.id,
+            entityName: account.name,
+            previousAmount: previous,
+            newAmount: displayed,
+            note: note
+        ))
+    }
+
+    func setGoalCurrentAmountWithLog(_ goal: Goal, to newAmount: Double, note: String? = nil) {
+        let previous = goal.currentAmount
+        setGoalCurrentAmount(goal, to: newAmount)
+        let displayed = goals.first(where: { $0.id == goal.id })?.currentAmount ?? newAmount
+        recordAdjustment(BalanceAdjustment(
+            kind: .potSavedAmountCorrection,
+            entityId: goal.id,
+            entityName: goal.title,
+            previousAmount: previous,
+            newAmount: displayed,
+            note: note
+        ))
+    }
+
+    func installStarterCategoriesIfMissing() {
+        guard categories.isEmpty else { return }
+        var nextSort = 0
+        let expenses: [(String, String, String)] = [
+            ("Food", "fork.knife", "#FF9500"),
+            ("Groceries", "cart.fill", "#34C759"),
+            ("Coffee", "cup.and.saucer.fill", "#A0522D"),
+            ("Transportation", "car.fill", "#5AC8FA"),
+            ("Rent", "house.fill", "#5856D6"),
+            ("School", "graduationcap.fill", "#007AFF"),
+            ("Subscriptions", "repeat.circle.fill", "#FF2D55"),
+            ("Entertainment", "film.fill", "#AF52DE"),
+            ("Health", "heart.fill", "#FF3B30"),
+            ("Shopping", "bag.fill", "#FFCC00")
+        ]
+        let incomes: [(String, String, String)] = [
+            ("Allowance", "banknote.fill", "#34C759"),
+            ("Scholarship", "graduationcap.fill", "#5856D6"),
+            ("Part-time Job", "briefcase.fill", "#007AFF"),
+            ("Gift", "gift.fill", "#FF2D55"),
+            ("Other Income", "plus.circle.fill", "#8E8E93")
+        ]
+        for (name, icon, color) in expenses {
+            categories.append(Category(name: name, icon: icon, color: color, type: .expense, sortOrder: nextSort))
+            nextSort += 1
+        }
+        for (name, icon, color) in incomes {
+            categories.append(Category(name: name, icon: icon, color: color, type: .income, sortOrder: nextSort))
+            nextSort += 1
+        }
+        saveCategories()
+    }
+
+    func installSampleDemoData() {
+        guard let primary = accounts.first(where: { !$0.isArchived }) else { return }
+        installStarterCategoriesIfMissing()
+        let cal = Calendar.current
+        let now = Date()
+        let pairs: [(String, TransactionType, Double, Int, String)] = [
+            ("Coffee", .expense, 4.20, -1, "Coffee"),
+            ("Groceries run", .expense, 38.50, -2, "Groceries"),
+            ("Bus pass", .expense, 22.00, -3, "Transportation"),
+            ("Allowance", .income, 120.00, -4, "Allowance"),
+            ("Lunch", .expense, 11.75, -5, "Food"),
+            ("Streaming", .expense, 9.99, -6, "Subscriptions")
+        ]
+        var created: [UUID] = []
+        for (title, type, amount, daysAgo, catName) in pairs {
+            let cat = categories.first { $0.name == catName }
+            let date = cal.date(byAdding: .day, value: daysAgo, to: now) ?? now
+            let tx = Transaction(amount: amount, type: type, accountId: primary.id,
+                                 categoryId: cat?.id, title: title, note: "Sample", date: date)
+            transactions.append(tx)
+            created.append(tx.id)
+        }
+        demoTransactionIds.formUnion(created)
+        saveTransactions()
+        saveDemoIds()
+        refreshWeeklyHistory()
+    }
+
+    func removeDemoData() {
+        guard !demoTransactionIds.isEmpty else { return }
+        let removed = transactions.filter { demoTransactionIds.contains($0.id) }
+        transactions.removeAll { demoTransactionIds.contains($0.id) }
+        let removedTotal = removed.reduce(0.0) { $0 + $1.signedAmount }
+        let count = demoTransactionIds.count
+        demoTransactionIds.removeAll()
+        saveTransactions()
+        saveDemoIds()
+        refreshWeeklyHistory()
+        recordAdjustment(BalanceAdjustment(
+            kind: .demoDataRemoved,
+            entityId: UUID(),
+            entityName: "Sample data",
+            previousAmount: removedTotal,
+            newAmount: 0,
+            note: "Removed \(count) sample transactions"
+        ))
+    }
+
+    var hasDemoData: Bool { !demoTransactionIds.isEmpty }
+
+    func reloadFromCloud() {
+        guard sync.isAvailable else { return }
+        loadWithiCloudMerge()
+        refreshWeeklyHistory()
+        lastSyncDate = Date()
+    }
+
+    func backupNow() {
+        guard sync.isAvailable else { return }
+        if let d = try? encoder.encode(accounts)             { sync.write(d, filename: iCloudFiles.accounts) }
+        if let d = try? encoder.encode(categories)           { sync.write(d, filename: iCloudFiles.categories) }
+        if let d = try? encoder.encode(transactions)         { sync.write(d, filename: iCloudFiles.transactions) }
+        if let d = try? encoder.encode(goals)                { sync.write(d, filename: iCloudFiles.goals) }
+        if let d = try? encoder.encode(recurringTransactions){ sync.write(d, filename: iCloudFiles.recurring) }
+        if let d = try? encoder.encode(debts)                { sync.write(d, filename: iCloudFiles.debts) }
+        if let d = try? encoder.encode(adjustments)          { sync.write(d, filename: iCloudFiles.adjustments) }
+        if let d = try? encoder.encode(userProfile)          { sync.write(d, filename: iCloudFiles.userProfile) }
+        if let d = try? encoder.encode(appState)             { sync.write(d, filename: iCloudFiles.appState) }
+        lastSyncDate = Date()
+    }
+
     func resetAllData() {
         accounts = Account.defaultAccounts
-        categories = [] // Empty - user creates their own!
+        categories = []
         transactions = []
         goals = []
         recurringTransactions = []
+        debts = []
+        adjustments = []
+        demoTransactionIds = []
         userProfile = UserProfile()
         appState = AppState()
 
@@ -1546,6 +1916,9 @@ class BalancedViewModel: ObservableObject {
         saveTransactions()
         saveGoals()
         saveRecurring()
+        saveDebts()
+        saveAdjustments()
+        saveDemoIds()
         saveUserProfile()
         saveAppState()
         refreshWeeklyHistory()

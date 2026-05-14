@@ -145,7 +145,8 @@ struct HomeCalendarSection: View {
 
     private func goalsDueOn(_ date: Date) -> [Goal] {
         viewModel.goals.filter { g in
-            !g.isCompleted && g.deadline != nil && cal.isDate(g.deadline!, inSameDayAs: date)
+            guard !g.isCompleted, let deadline = g.deadline else { return false }
+            return cal.isDate(deadline, inSameDayAs: date)
         }
     }
 
@@ -263,7 +264,7 @@ struct HomeCalendarSection: View {
 
                 ForEach(monthDays, id: \.self) { date in
                     let isToday = cal.isDateInToday(date)
-                    let isTapped = tappedDate != nil && cal.isDate(date, inSameDayAs: tappedDate!)
+                    let isTapped = tappedDate.map { cal.isDate(date, inSameDayAs: $0) } ?? false
                     let events = eventsForDate(date)
 
                     Button {

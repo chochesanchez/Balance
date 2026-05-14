@@ -1581,7 +1581,12 @@ struct EditAccountView: View {
     @State private var selectedIcon: String
     @State private var selectedColorIndex: Int
     @State private var note: String
-    
+    @State private var balanceText: String
+    @State private var originalBalance: Double = 0
+    @State private var showBalanceConfirm = false
+    @State private var pendingCorrection: Double?
+    @State private var showDeleteSheet = false
+
     private let accountIcons = [
         "building.columns.fill", "banknote.fill", "creditcard.fill", "wallet.pass.fill",
         "dollarsign.circle.fill", "lock.fill", "briefcase.fill", "bag.fill",
@@ -1591,7 +1596,7 @@ struct EditAccountView: View {
         "coloncurrencysign.circle.fill", "francsign.circle.fill",
         "house.fill", "car.fill", "star.fill", "heart.fill",
     ]
-    
+
     init(viewModel: BalancedViewModel, account: Account) {
         self.viewModel = viewModel
         self.account = account
@@ -1599,7 +1604,10 @@ struct EditAccountView: View {
         _selectedType = State(initialValue: account.type)
         _selectedIcon = State(initialValue: account.icon)
         _note = State(initialValue: account.note ?? "")
-        
+        let currentAccountBalance = viewModel.balanceForAccount(account)
+        _balanceText = State(initialValue: String(format: "%.2f", currentAccountBalance))
+        _originalBalance = State(initialValue: currentAccountBalance)
+
         var colorIndex = 0
         for (index, color) in Theme.Colors.categoryColors.enumerated() {
             if let hex = color.toHex(), hex.uppercased() == account.color.uppercased() {
@@ -1658,9 +1666,19 @@ struct EditAccountView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    
+
                     Divider().padding(.leading, 16)
-                    
+
+                    FormRow(label: "Current Balance") {
+                        TextField("0.00", text: $balanceText)
+                            .font(.system(size: 15))
+                            .multilineTextAlignment(.trailing)
+                            .keyboardType(.decimalPad)
+                            .accessibilityHint("Adjusts your account balance. Not recorded as income or expense.")
+                    }
+
+                    Divider().padding(.leading, 16)
+
                     FormRow(label: "Note") {
                         TextField("Optional", text: $note)
                             .font(.system(size: 15))
@@ -1668,6 +1686,11 @@ struct EditAccountView: View {
                             .foregroundColor(Color(uiColor: .secondaryLabel))
                     }
                 }
+                Text("Use this to correct your real balance. This will not count as income or expense.")
+                    .font(.system(size: 11))
+                    .foregroundColor(Color(uiColor: .secondaryLabel))
+                    .padding(.horizontal, 24)
+                    .padding(.top, -4)
                 .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .cornerRadius(14)
                 .padding(.horizontal, 16)
@@ -1700,14 +1723,29 @@ struct EditAccountView: View {
             
             if viewModel.accounts.count > 1 {
                     Button(role: .destructive, action: {
-                        viewModel.deleteAccount(account)
-                        dismiss()
+                        showDeleteSheet = true
                     }) {
-                        Text("Delete Account")
+                        Text(account.isArchived ? "Manage Archived Account" : "Close or Archive Account")
                             .font(.system(size: 15, weight: .medium))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                             .background(Color(uiColor: .secondarySystemGroupedBackground))
+                            .cornerRadius(14)
+                    }
+                    .padding(.horizontal, 16)
+                }
+
+                if account.isArchived {
+                    Button {
+                        viewModel.unarchiveAccount(account)
+                        dismiss()
+                    } label: {
+                        Text("Unarchive Account")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(Theme.Colors.primary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Theme.Colors.primary.opacity(0.08))
                             .cornerRadius(14)
                     }
                     .padding(.horizontal, 16)
@@ -1717,17 +1755,40 @@ struct EditAccountView: View {
             .padding(.bottom, 32)
         }
         .background(Color(uiColor: .systemGroupedBackground))
-        .navigationTitle("Edit Account")
+        .navigationTitle(account.isArchived ? "Archived Account" : "Edit Account")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Save") { saveChanges() }
+                Button("Save") { attemptSave() }
                     .fontWeight(.semibold)
             }
         }
+        .sheet(isPresented: $showDeleteSheet) {
+            AccountDeleteSheet(viewModel: viewModel, account: account, onCompleted: { dismiss() })
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+        .alert("Correct balance?", isPresented: $showBalanceConfirm, presenting: pendingCorrection) { newValue in
+            Button("Correct Balance", role: .destructive) { commitSave(with: newValue) }
+            Button("Cancel", role: .cancel) { pendingCorrection = nil }
+        } message: { newValue in
+            Text("Update balance from \(formatCurrency(originalBalance, currency: viewModel.appState.selectedCurrency)) to \(formatCurrency(newValue, currency: viewModel.appState.selectedCurrency))? This will not be recorded as income or expense.")
+        }
     }
-    
-    private func saveChanges() {
+
+    private func attemptSave() {
+        let parsed = Double(balanceText.replacingOccurrences(of: ",", with: ".")) ?? originalBalance
+        let delta = abs(parsed - originalBalance)
+        let bigChange = delta > max(50, abs(originalBalance) * 0.25)
+        if delta > 0.005 && bigChange {
+            pendingCorrection = parsed
+            showBalanceConfirm = true
+        } else {
+            commitSave(with: parsed)
+        }
+    }
+
+    private func commitSave(with newBalance: Double) {
         let colorHex = Theme.Colors.categoryColors[selectedColorIndex].toHex() ?? account.color
         var updated = account
         updated.name = name
@@ -1736,6 +1797,10 @@ struct EditAccountView: View {
         updated.color = colorHex
         updated.note = note.isEmpty ? nil : note
         viewModel.updateAccount(updated)
+
+        if abs(newBalance - originalBalance) > 0.005 {
+            viewModel.setAccountBalanceWithLog(updated, to: newBalance)
+        }
         Haptics.success()
         dismiss()
     }
